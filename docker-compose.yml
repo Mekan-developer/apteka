@@ -1,0 +1,86 @@
+# Базовая конфигурация, общая для dev и prod.
+#   dev:  docker compose up -d   (автоматически подхватывает docker-compose.override.yml)
+#   prod: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+# Общие настройки для контейнеров с PHP (php-fpm и воркер очереди).
+x-php: &php
+  build:
+    context: .
+    dockerfile: docker/php/Dockerfile
+    args:
+      PACKAGIST_MIRROR: ${PACKAGIST_MIRROR:-}
+      DEBIAN_MIRROR: ${DEBIAN_MIRROR:-}
+      DEBIAN_SECURITY_MIRROR: ${DEBIAN_SECURITY_MIRROR:-}
+      NPM_REGISTRY: ${NPM_REGISTRY:-}
+  depends_on:
+    mysql:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  php:
+    <<: *php
+    container_name: project_php
+    restart: unless-stopped
+
+  queue:
+    <<: *php
+    container_name: project_queue
+    command: php artisan queue:work --tries=3 --max-time=3600
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: project_nginx
+    restart: unless-stopped
+    depends_on:
+      php:
+        condition: service_started
+
+  mysql:
+    image: mysql:8.4
+    container_name: project_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:?Задай DB_DATABASE в .env}
+      MYSQL_USER: ${DB_USERNAME:?Задай DB_USERNAME в .env (не root)}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Задай DB_PASSWORD в .env}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Задай DB_ROOT_PASSWORD в .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: project_redis
+    restart: unless-stopped
+    # REDIS_PASSWORD пустой или null: Redis без пароля (как в Laravel)
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    command:
+      - sh
+      - -c
+      - |
+        if [ -n "$$REDIS_PASSWORD" ] && [ "$$REDIS_PASSWORD" != "null" ]; then
+          exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+        fi
+        exec redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - '[ -z "$$REDIS_PASSWORD" ] || [ "$$REDIS_PASSWORD" = "null" ] || export REDISCLI_AUTH="$$REDIS_PASSWORD"; redis-cli ping | grep -q PONG'
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mysql_data:
+  redis_data:

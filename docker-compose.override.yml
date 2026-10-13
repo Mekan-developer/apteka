@@ -1,0 +1,26 @@
+# Dev: подхватывается автоматически при `docker compose up`.
+# Код монтируется с хоста, изменения видны сразу.
+
+services:
+  php:
+    build:
+      target: dev
+    volumes:
+      - ./:/var/www/app
+
+  queue:
+    build:
+      target: dev
+    volumes:
+      - ./:/var/www/app
+
+  nginx:
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./:/var/www/app:ro
+
+  mysql:
+    ports:
+      - "127.0.0.1:3309:3306"

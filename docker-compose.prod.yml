@@ -1,0 +1,39 @@
+# Prod: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Код, vendor и собранный фронт внутри образа. С сервера монтируются только .env и storage.
+
+x-prod-php: &prod-php
+  image: admika-php:latest
+  build:
+    target: prod
+  volumes:
+    - ./.env:/var/www/app/.env:ro
+    - storage_data:/var/www/app/storage
+
+services:
+  php:
+    <<: *prod-php
+    # Кэш конфига, маршрутов и шаблонов собирается при старте: .env известен только на сервере.
+    command: sh -c "php artisan optimize && exec php-fpm"
+
+  queue:
+    <<: *prod-php
+
+  nginx:
+    image: admika-nginx:latest
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: nginx
+      # Стадия nginx берёт public/ из prod, поэтому нужны те же зеркала
+      args:
+        PACKAGIST_MIRROR: ${PACKAGIST_MIRROR:-}
+        DEBIAN_MIRROR: ${DEBIAN_MIRROR:-}
+        DEBIAN_SECURITY_MIRROR: ${DEBIAN_SECURITY_MIRROR:-}
+        NPM_REGISTRY: ${NPM_REGISTRY:-}
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    volumes:
+      - storage_data:/var/www/app/storage:ro
+
+volumes:
+  storage_data:
