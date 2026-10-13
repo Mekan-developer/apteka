@@ -1,0 +1,26 @@
+vendor
+node_modules
+.git
+.github
+.claude
+docker_config_guide.md
+
+# Секреты: в prod .env монтируется с сервера, в образ не попадает
+.env
+.env.*
+!.env.example
+
+# Собирается внутри образа
+public/build
+public/hot
+public/storage
+bootstrap/cache/*
+!bootstrap/cache/.gitignore
+
+# Локальные данные и кэши
+storage/logs
+storage/app/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing
