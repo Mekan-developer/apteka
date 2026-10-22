@@ -160,8 +160,9 @@ return [
     |
     */
 
+    // Registration is closed: the super admin is created by `php artisan admins:create-super-admin`
+    // and adds the other admins on the Admins page.
     'features' => [
-        Features::registration(),
         Features::resetPasswords(),
         Features::emailVerification(),
         Features::twoFactorAuthentication([
