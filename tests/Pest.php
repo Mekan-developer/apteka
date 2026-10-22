@@ -1,6 +1,10 @@
 <?php
 
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use OpenSpout\Common\Entity\Cell;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Writer\XLSX\Writer;
 use Tests\TestCase;
 
 /*
@@ -47,4 +51,42 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * Write an .xlsx file with the given sheets to a temporary path that is removed when the run ends.
+ *
+ * Pass a Cell instead of a plain value when the cell needs a style, e.g. a date format.
+ *
+ * @param  array<string, list<list<bool|Cell|DateTimeInterface|float|int|string|null>>>  $sheets  Sheet name => rows.
+ */
+function xlsxFile(array $sheets): string
+{
+    $directory = sys_get_temp_dir().'/apteka-tests-'.getmypid();
+
+    if (! is_dir($directory)) {
+        mkdir($directory);
+        register_shutdown_function(fn () => (new Filesystem)->deleteDirectory($directory));
+    }
+
+    $path = $directory.'/'.uniqid('prices-', true).'.xlsx';
+
+    $writer = new Writer;
+    $writer->openToFile($path);
+
+    foreach (array_keys($sheets) as $position => $name) {
+        $sheet = $position === 0 ? $writer->getCurrentSheet() : $writer->addNewSheetAndMakeItCurrent();
+        $sheet->setName($name);
+
+        foreach ($sheets[$name] as $values) {
+            $writer->addRow(new Row(array_map(
+                fn (bool|Cell|DateTimeInterface|float|int|string|null $value): Cell => $value instanceof Cell ? $value : Cell::fromValue($value),
+                $values,
+            )));
+        }
+    }
+
+    $writer->close();
+
+    return $path;
 }
