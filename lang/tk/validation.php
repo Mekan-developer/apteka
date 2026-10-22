@@ -183,6 +183,7 @@ return [
         'current_password' => 'Häzirki açar sözi',
         'locale' => 'Dil',
         'image' => 'Surat',
+        'file' => 'Baha sanawly faýl',
     ],
 
 ];
