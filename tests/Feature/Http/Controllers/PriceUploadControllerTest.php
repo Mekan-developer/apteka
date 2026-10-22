@@ -17,6 +17,13 @@ test('guests are sent to the login page', function () {
     $this->post(route('price-uploads.store'))->assertRedirect(route('login'));
 });
 
+test('both admins and the super admin work with price uploads', function (User $user) {
+    $this->actingAs($user)->get(route('price-uploads.index'))->assertOk();
+})->with([
+    'admin' => fn () => User::factory()->create(),
+    'super admin' => fn () => User::factory()->superAdmin()->create(),
+]);
+
 test('the page lists uploads newest first with their import progress', function () {
     PriceUpload::factory()->archived()->create(['original_filename' => 'prices-15.10.xlsx']);
     $newest = PriceUpload::factory()->create(['original_filename' => 'prices-22.10.xlsx', 'sheets_total' => 98]);

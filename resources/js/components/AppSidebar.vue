@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
-import { BookOpen, FileSpreadsheet, FolderGit2, LayoutGrid } from '@lucide/vue';
+import { Link, usePage } from '@inertiajs/vue3';
+import {
+    BookOpen,
+    FileSpreadsheet,
+    FolderGit2,
+    LayoutGrid,
+    Users,
+} from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
@@ -17,10 +23,12 @@ import {
 } from '@/components/ui/sidebar';
 import { useTrans } from '@/composables/useTrans';
 import { dashboard } from '@/routes';
+import { index as admins } from '@/routes/admins';
 import { index as priceUploads } from '@/routes/price-uploads';
 import type { NavItem } from '@/types';
 
 const { t } = useTrans();
+const page = usePage();
 
 // Computed, so the titles follow a language switch: the sidebar layout is not remounted.
 const mainNavItems = computed<NavItem[]>(() => [
@@ -34,6 +42,9 @@ const mainNavItems = computed<NavItem[]>(() => [
         href: priceUploads(),
         icon: FileSpreadsheet,
     },
+    ...(page.props.auth.can.manageAdmins
+        ? [{ title: t('admins.title'), href: admins(), icon: Users }]
+        : []),
 ]);
 
 const footerNavItems: NavItem[] = [
