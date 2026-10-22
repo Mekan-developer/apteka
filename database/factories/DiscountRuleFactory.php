@@ -26,6 +26,7 @@ class DiscountRuleFactory extends Factory
             'type' => DiscountRuleType::Goods,
             'percent' => 5,
             'min_sum' => null,
+            'is_conditional' => false,
             'raw_text' => 'Товарная скидка 5%',
         ];
     }

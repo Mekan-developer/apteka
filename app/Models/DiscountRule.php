@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * A discount a pharmacy states for its whole sheet, e.g. "Товарная скидка 5%"
  * or "от 10 000 ман −5%" (min_sum is set for discounts that depend on the order sum).
+ * A conditional discount (order sum, payment in cash, a number of boxes) never lowers the search price.
  *
  * @property int $id
  * @property int $price_upload_id
@@ -20,9 +21,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property DiscountRuleType $type
  * @property string $percent
  * @property string|null $min_sum
+ * @property bool $is_conditional
  * @property string $raw_text
  */
-#[Fillable(['price_upload_id', 'pharmacy_id', 'type', 'percent', 'min_sum', 'raw_text'])]
+#[Fillable(['price_upload_id', 'pharmacy_id', 'type', 'percent', 'min_sum', 'is_conditional', 'raw_text'])]
 #[WithoutTimestamps]
 class DiscountRule extends Model
 {
@@ -40,6 +42,7 @@ class DiscountRule extends Model
             'type' => DiscountRuleType::class,
             'percent' => 'decimal:2',
             'min_sum' => 'decimal:2',
+            'is_conditional' => 'boolean',
         ];
     }
 

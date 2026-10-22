@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('type');
             $table->decimal('percent', 5, 2);
             $table->decimal('min_sum', 12, 2)->nullable();
+            $table->boolean('is_conditional')->default(false);
             $table->text('raw_text');
 
             $table->index(['price_upload_id', 'pharmacy_id']);
