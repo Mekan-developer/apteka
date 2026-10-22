@@ -43,6 +43,33 @@ class PriceSpreadsheetReader
     }
 
     /**
+     * Sheet names in workbook order, without reading any rows.
+     *
+     * @return list<string>
+     *
+     * @throws OpenSpoutException When the file is missing or is not a readable .xlsx file.
+     */
+    public function sheetNames(string $path): array
+    {
+        $reader = new Reader;
+        $reader->open($path);
+
+        try {
+            $names = [];
+
+            foreach ($reader->getSheetIterator() as $sheet) {
+                $names[] = $sheet->getName();
+            }
+
+            return $names;
+        } finally {
+            $reader->close();
+            unset($reader);
+            gc_collect_cycles();
+        }
+    }
+
+    /**
      * Yield every sheet of the file with all its non-empty rows keyed by Excel row number.
      *
      * @return Generator<int, SheetRows>
