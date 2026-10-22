@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Prices\PriceSpreadsheetReader;
 use App\Services\Prices\SheetPreview;
+use App\Support\ExcelColumn;
 use DateInterval;
 use DateTimeInterface;
 use Illuminate\Console\Attributes\Description;
@@ -26,7 +27,7 @@ class InspectPricesCommand extends Command
         $path = (string) $this->argument('path');
 
         if (! is_file($path)) {
-            $this->error(__('prices.inspect.file_not_found', ['path' => $path]));
+            $this->error(__('prices.file_not_found', ['path' => $path]));
 
             return self::FAILURE;
         }
@@ -43,7 +44,7 @@ class InspectPricesCommand extends Command
                 $this->renderSheet($sheet);
             }
         } catch (OpenSpoutException $exception) {
-            $this->error(__('prices.inspect.cannot_read', ['error' => $exception->getMessage()]));
+            $this->error(__('prices.cannot_read', ['error' => $exception->getMessage()]));
 
             return self::FAILURE;
         }
@@ -77,26 +78,12 @@ class InspectPricesCommand extends Command
         $width = max(array_map(count(...), $sheet->rows));
 
         $this->table(
-            array_map($this->columnName(...), range(0, $width - 1)),
+            array_map(ExcelColumn::name(...), range(0, $width - 1)),
             array_map(
                 fn (array $row): array => array_pad(array_map($this->formatCell(...), $row), $width, ''),
                 $sheet->rows,
             ),
         );
-    }
-
-    /**
-     * Excel column name for a zero-based index: 0 → A, 25 → Z, 26 → AA.
-     */
-    private function columnName(int $index): string
-    {
-        $name = '';
-
-        for ($number = $index + 1; $number > 0; $number = intdiv($number - 1, 26)) {
-            $name = chr(ord('A') + ($number - 1) % 26).$name;
-        }
-
-        return $name;
     }
 
     /**

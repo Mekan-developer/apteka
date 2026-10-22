@@ -18,7 +18,7 @@ test('fails when the file does not exist', function () {
     $path = sys_get_temp_dir().'/missing-prices.xlsx';
 
     $this->artisan('prices:inspect', ['path' => $path])
-        ->expectsOutputToContain(__('prices.inspect.file_not_found', ['path' => $path]))
+        ->expectsOutputToContain(__('prices.file_not_found', ['path' => $path]))
         ->assertFailed();
 });
 

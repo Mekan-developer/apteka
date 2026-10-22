@@ -54,6 +54,20 @@ function something()
 }
 
 /**
+ * Rows of a real price sheet from tests/fixtures/prices/sheets.php, keyed by Excel row number.
+ *
+ * @return array<int, list<mixed>>
+ */
+function priceSheetRows(string $sheetName): array
+{
+    static $sheets = null;
+
+    $sheets ??= require __DIR__.'/fixtures/prices/sheets.php';
+
+    return $sheets[$sheetName];
+}
+
+/**
  * Write an .xlsx file with the given sheets to a temporary path that is removed when the run ends.
  *
  * Pass a Cell instead of a plain value when the cell needs a style, e.g. a date format.
