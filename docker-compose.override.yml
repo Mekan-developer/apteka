@@ -21,6 +21,9 @@ services:
       - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
       - ./:/var/www/app:ro
 
-  mysql:
+  postgres:
     ports:
-      - "127.0.0.1:3309:3306"
+      - "127.0.0.1:5433:5432"
+    # Создаёт тестовую базу при первом запуске (пустой volume)
+    volumes:
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro

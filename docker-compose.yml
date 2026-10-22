@@ -13,7 +13,7 @@ x-php: &php
       DEBIAN_SECURITY_MIRROR: ${DEBIAN_SECURITY_MIRROR:-}
       NPM_REGISTRY: ${NPM_REGISTRY:-}
   depends_on:
-    mysql:
+    postgres:
       condition: service_healthy
     redis:
       condition: service_healthy
@@ -38,19 +38,18 @@ services:
       php:
         condition: service_started
 
-  mysql:
-    image: mysql:8.4
+  postgres:
+    image: postgres:16-alpine
     container_name: project_db
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:?Задай DB_DATABASE в .env}
-      MYSQL_USER: ${DB_USERNAME:?Задай DB_USERNAME в .env (не root)}
-      MYSQL_PASSWORD: ${DB_PASSWORD:?Задай DB_PASSWORD в .env}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Задай DB_ROOT_PASSWORD в .env}
+      POSTGRES_DB: ${DB_DATABASE:?Задай DB_DATABASE в .env}
+      POSTGRES_USER: ${DB_USERNAME:?Задай DB_USERNAME в .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Задай DB_PASSWORD в .env}
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p$$MYSQL_ROOT_PASSWORD --silent"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -82,5 +81,5 @@ services:
       retries: 10
 
 volumes:
-  mysql_data:
+  postgres_data:
   redis_data:
