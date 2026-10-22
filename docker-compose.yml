@@ -21,18 +21,18 @@ x-php: &php
 services:
   php:
     <<: *php
-    container_name: project_php
+    container_name: apteka_php
     restart: unless-stopped
 
   queue:
     <<: *php
-    container_name: project_queue
+    container_name: apteka_queue
     command: php artisan queue:work --tries=3 --max-time=3600
     restart: unless-stopped
 
   nginx:
     image: nginx:1.27-alpine
-    container_name: project_nginx
+    container_name: apteka_nginx
     restart: unless-stopped
     depends_on:
       php:
@@ -40,7 +40,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: project_db
+    container_name: apteka_db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_DATABASE:?Задай DB_DATABASE в .env}
@@ -57,7 +57,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: project_redis
+    container_name: apteka_redis
     restart: unless-stopped
     # REDIS_PASSWORD пустой или null: Redis без пароля (как в Laravel)
     environment:
