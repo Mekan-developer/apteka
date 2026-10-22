@@ -32,6 +32,25 @@ class PriceSpreadsheetReader
      */
     public function previewSheets(string $path, int $previewRowCount = 8): Generator
     {
+        foreach ($this->sheets($path) as $sheet) {
+            yield new SheetPreview(
+                $sheet->index,
+                $sheet->name,
+                count($sheet->rows),
+                array_slice($sheet->rows, 0, $previewRowCount),
+            );
+        }
+    }
+
+    /**
+     * Yield every sheet of the file with all its non-empty rows keyed by Excel row number.
+     *
+     * @return Generator<int, SheetRows>
+     *
+     * @throws OpenSpoutException When the file is missing or is not a readable .xlsx file.
+     */
+    public function sheets(string $path): Generator
+    {
         $firstSheetIndex = 0;
 
         do {
@@ -51,7 +70,7 @@ class PriceSpreadsheetReader
                         break;
                     }
 
-                    yield $this->preview($sheet, $previewRowCount);
+                    yield $this->rows($sheet);
                 }
             } finally {
                 $reader->close();
@@ -65,26 +84,19 @@ class PriceSpreadsheetReader
         } while ($hasMoreSheets);
     }
 
-    private function preview(Sheet $sheet, int $previewRowCount): SheetPreview
+    private function rows(Sheet $sheet): SheetRows
     {
-        $rowCount = 0;
         $rows = [];
 
-        foreach ($sheet->getRowIterator() as $row) {
+        foreach ($sheet->getRowIterator() as $rowNumber => $row) {
             $values = $this->values($row);
 
-            if ($values === []) {
-                continue;
-            }
-
-            $rowCount++;
-
-            if (count($rows) < $previewRowCount) {
-                $rows[] = $values;
+            if ($values !== []) {
+                $rows[$rowNumber] = $values;
             }
         }
 
-        return new SheetPreview($sheet->getIndex(), $sheet->getName(), $rowCount, $rows);
+        return new SheetRows($sheet->getIndex(), $sheet->getName(), $rows);
     }
 
     /**
