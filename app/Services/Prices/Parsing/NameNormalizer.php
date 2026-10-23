@@ -52,7 +52,8 @@ final class NameNormalizer
 
     public function __construct()
     {
-        $this->stopWords = array_flip(self::STOP_WORDS);
+        // Names lose their soft and hard signs, so the stop words must too: «беларусь» → «беларус».
+        $this->stopWords = array_flip(str_replace(['ь', 'ъ'], '', self::STOP_WORDS));
     }
 
     public function normalize(string $name): NormalizedName
@@ -71,11 +72,12 @@ final class NameNormalizer
     }
 
     /**
-     * Lowercase, «ё» → «е», Latin lookalikes inside Cyrillic words → Cyrillic, single spaces.
+     * Lowercase, «ё» → «е», no soft or hard signs («Анальгин» and «Аналгин» are both written),
+     * Latin lookalikes inside Cyrillic words → Cyrillic, single spaces.
      */
     private function prepare(string $name): string
     {
-        $text = str_replace(['ё', "\u{A0}", '®', '™'], ['е', ' ', '', ''], mb_strtolower($name));
+        $text = str_replace(['ё', 'ь', 'ъ', "\u{A0}", '®', '™'], ['е', '', '', ' ', '', ''], mb_strtolower($name));
 
         $text = (string) preg_replace_callback(
             '/\p{L}+/u',

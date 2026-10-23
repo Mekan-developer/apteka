@@ -44,6 +44,13 @@ test('typos in vowels give the same skeleton', function () {
         ->and($normalizer->normalize('Анолгин 10мг')->skeleton)->toBe('нлгн');
 });
 
+test('spellings with and without a soft sign meet', function () {
+    $normalizer = new NameNormalizer;
+
+    expect($normalizer->normalize('Анальгин таб №10')->baseName)->toBe('аналгин')
+        ->and($normalizer->normalize('Аналгин таб №10')->baseName)->toBe('аналгин');
+});
+
 test('Latin lookalikes inside a Cyrillic word become Cyrillic', function () {
     // "Нaфтизин" is typed with a Latin "a".
     expect((new NameNormalizer)->normalize('Нaфтизин капли 0,1% 15мл')->baseName)->toBe('нафтизин');
