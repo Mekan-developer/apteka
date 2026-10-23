@@ -71,6 +71,26 @@ export type PriceUpload = {
     sheets?: PriceUploadSheet[];
 };
 
+export type SearchOffer = {
+    id: number;
+    place: number;
+    pharmacy?: { name: string; phone: string | null };
+    raw_name: string;
+    dose: string | null;
+    manufacturer: string | null;
+    price: string;
+    price_discounted: string | null;
+    effective_price: string;
+    goods_discount_percent: string | null;
+    discount_note: string | null;
+    sheet_discounts?: DiscountRule[];
+};
+
+export type SearchGroup = {
+    pack_count: number | null;
+    offers: SearchOffer[];
+};
+
 export type Paginated<T> = {
     data: T[];
     links: {

@@ -9,6 +9,14 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 class PriceUploadRepository
 {
     /**
+     * The upload search uses; the database allows only one.
+     */
+    public function findActive(): ?PriceUpload
+    {
+        return PriceUpload::query()->where('status', PriceUploadStatus::Active)->first();
+    }
+
+    /**
      * @param  array<string, mixed>  $attributes
      */
     public function create(array $attributes): PriceUpload

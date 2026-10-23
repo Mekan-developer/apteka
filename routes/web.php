@@ -4,9 +4,10 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PriceUploadController;
 use App\Http\Controllers\PriceUploadSheetController;
+use App\Http\Controllers\SearchController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'Welcome')->name('home');
+Route::get('/', SearchController::class)->middleware('throttle:search')->name('home');
 
 Route::put('locale', LocaleController::class)->name('locale.update');
 

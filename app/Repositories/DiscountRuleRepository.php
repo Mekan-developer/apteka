@@ -33,6 +33,21 @@ class DiscountRuleRepository
     }
 
     /**
+     * The sheet discounts of the given pharmacies, for the notes next to search results.
+     *
+     * @param  list<int>  $pharmacyIds
+     * @return Collection<int, DiscountRule>
+     */
+    public function forPharmacies(PriceUpload $upload, array $pharmacyIds): Collection
+    {
+        return DiscountRule::query()
+            ->whereBelongsTo($upload)
+            ->whereIn('pharmacy_id', $pharmacyIds)
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
      * @return Collection<int, DiscountRule>
      */
     public function forSheet(PriceUploadSheet $sheet): Collection
