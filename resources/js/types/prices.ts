@@ -91,6 +91,13 @@ export type SearchGroup = {
     offers: SearchOffer[];
 };
 
+export type DrugSynonym = {
+    id: number;
+    term: string;
+    synonym: string;
+    created_at: string | null;
+};
+
 export type Paginated<T> = {
     data: T[];
     links: {

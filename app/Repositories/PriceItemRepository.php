@@ -59,11 +59,12 @@ class PriceItemRepository
      * The relative cutoff keeps a cheaper look-alike («Баралгин» for «аналгин») from outranking
      * the drug itself once the drug is found.
      *
+     * @param  non-empty-list<string>  $terms  The searched name first, then its synonyms; each counts as a full match.
      * @return Collection<int, PriceItem>
      */
     public function cheapestOffers(
         PriceUpload $upload,
-        string $term,
+        array $terms,
         string $skeleton,
         ?int $packCount,
         float $threshold,
@@ -71,17 +72,26 @@ class PriceItemRepository
         float $skeletonScore,
         int $perPack,
     ): Collection {
-        // «ношпа» and «Но-шпа» («но шпа» once normalized) meet when spaces are ignored.
-        $compactTerm = str_replace(' ', '', $term);
+        $scoreSql = [];
+        $scoreBindings = [];
+        $matchSql = [];
+        $matchBindings = [];
 
-        $scoreSql = [
-            'strict_word_similarity(?, pi.base_name)',
-            'coalesce(strict_word_similarity(?, pi.active_ingredient), 0)',
-            'strict_word_similarity(?, pi.name_compact)',
-        ];
-        $scoreBindings = [$term, $term, $compactTerm];
-        $matchSql = ['? <<% pi.base_name', '? <<% pi.active_ingredient', '? <<% pi.name_compact'];
-        $matchBindings = [$term, $term, $compactTerm];
+        foreach ($terms as $term) {
+            // «ношпа» and «Но-шпа» («но шпа» once normalized) meet when spaces are ignored.
+            $compactTerm = str_replace(' ', '', $term);
+
+            array_push(
+                $scoreSql,
+                'strict_word_similarity(?, pi.base_name)',
+                'coalesce(strict_word_similarity(?, pi.active_ingredient), 0)',
+                'strict_word_similarity(?, pi.name_compact)',
+            );
+            array_push($scoreBindings, $term, $term, $compactTerm);
+
+            array_push($matchSql, '? <<% pi.base_name', '? <<% pi.active_ingredient', '? <<% pi.name_compact');
+            array_push($matchBindings, $term, $term, $compactTerm);
+        }
 
         if (mb_strlen($skeleton) >= 3) {
             // The skeleton holds only consonant letters, so it never contains LIKE wildcards.

@@ -6,6 +6,7 @@ use App\Models\DiscountRule;
 use App\Models\PriceItem;
 use App\Models\PriceUpload;
 use App\Repositories\DiscountRuleRepository;
+use App\Repositories\DrugSynonymRepository;
 use App\Repositories\PriceItemRepository;
 use App\Repositories\PriceUploadRepository;
 use App\Services\Prices\Parsing\NameNormalizer;
@@ -26,6 +27,7 @@ class PriceSearchService
         private readonly PriceUploadRepository $uploads,
         private readonly PriceItemRepository $items,
         private readonly DiscountRuleRepository $discountRules,
+        private readonly DrugSynonymRepository $synonyms,
     ) {}
 
     public function activeUpload(): ?PriceUpload
@@ -52,10 +54,11 @@ class PriceSearchService
         }
 
         $name = $this->normalizer->normalize($query);
+        $term = $this->term($query);
 
         $offers = $this->items->cheapestOffers(
             upload: $upload,
-            term: $this->term($query),
+            terms: [$term, ...$this->synonyms->namesRelatedTo($term)],
             skeleton: $name->skeleton,
             packCount: $name->packCount,
             threshold: (float) config('prices.search.similarity_threshold'),

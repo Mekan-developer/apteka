@@ -189,6 +189,8 @@ return [
         'price_col' => 'Bahanyň sütüni',
         'price_discounted_col' => 'Arzanladylan bahanyň sütüni',
         'q' => 'Dermanyň ady',
+        'term' => 'Ady',
+        'synonym' => 'Başga ady',
     ],
 
 ];

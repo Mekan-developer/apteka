@@ -2,6 +2,7 @@
 
 use App\Enums\PriceUploadStatus;
 use App\Models\DiscountRule;
+use App\Models\DrugSynonym;
 use App\Models\Pharmacy;
 use App\Models\PriceItem;
 use App\Models\PriceUpload;
@@ -175,6 +176,32 @@ test('the active ingredient finds the drug under another brand name', function (
 
     $this->get(route('home', ['q' => 'цитрамон']))
         ->assertInertia(fn (Assert $page) => $page->where('groups.0.offers.0.raw_name', 'ACTION PLUS (ЦИТРАМОН) №4'));
+});
+
+test('a synonym finds the drug under its other name, in both directions', function () {
+    $upload = PriceUpload::factory()->active()->create();
+    offer($upload, 'Naz ada', 'Ацетилсалициловая кислота таб 500мг №10', 1.6);
+    offer($upload, 'Merdan Gos', 'Аспирин 500мг таблетки №10', 3.0);
+    DrugSynonym::factory()->create(['term_normalized' => 'аспирин', 'synonym_normalized' => 'ацетилсалициловая кислота']);
+
+    foreach (['аспирин', 'ацетилсалициловая кислота'] as $query) {
+        $this->get(route('home', ['q' => $query]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('groups.0.offers', 2)
+                ->where('groups.0.offers.0.pharmacy.name', 'Naz ada')
+                ->where('groups.0.offers.1.pharmacy.name', 'Merdan Gos')
+            );
+    }
+});
+
+test('synonyms reach the names linked through another name', function () {
+    $upload = PriceUpload::factory()->active()->create();
+    offer($upload, 'Kamat', 'Аскофен-П таб №10', 2.6);
+    DrugSynonym::factory()->create(['term_normalized' => 'action plus', 'synonym_normalized' => 'цитрамон']);
+    DrugSynonym::factory()->create(['term_normalized' => 'цитрамон', 'synonym_normalized' => 'аскофен п']);
+
+    $this->get(route('home', ['q' => 'action plus']))
+        ->assertInertia(fn (Assert $page) => $page->where('groups.0.offers.0.raw_name', 'Аскофен-П таб №10'));
 });
 
 test('a search that finds nothing suggests close product names', function () {

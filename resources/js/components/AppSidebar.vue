@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import {
+    ArrowLeftRight,
     BookOpen,
     FileSpreadsheet,
     FolderGit2,
@@ -25,6 +26,7 @@ import { useTrans } from '@/composables/useTrans';
 import { dashboard } from '@/routes';
 import { index as admins } from '@/routes/admins';
 import { index as priceUploads } from '@/routes/price-uploads';
+import { index as synonyms } from '@/routes/synonyms';
 import type { NavItem } from '@/types';
 
 const { t } = useTrans();
@@ -41,6 +43,11 @@ const mainNavItems = computed<NavItem[]>(() => [
         title: t('price_uploads.title'),
         href: priceUploads(),
         icon: FileSpreadsheet,
+    },
+    {
+        title: t('synonyms.title'),
+        href: synonyms(),
+        icon: ArrowLeftRight,
     },
     ...(page.props.auth.can.manageAdmins
         ? [{ title: t('admins.title'), href: admins(), icon: Users }]
