@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $name_normalized
  * @property string $name_skeleton
  * @property string $base_name
+ * @property string $name_compact Base name without spaces, so «ношпа» finds «Но-шпа».
  * @property string|null $active_ingredient
  * @property int|null $pack_count
  * @property string|null $dose
@@ -40,6 +41,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'name_normalized',
     'name_skeleton',
     'base_name',
+    'name_compact',
     'active_ingredient',
     'pack_count',
     'dose',

@@ -28,5 +28,5 @@ test('names searched by similarity have trigram gin indexes', function () {
         ->values()
         ->all();
 
-    expect($trigramColumns)->toBe(['active_ingredient', 'base_name', 'name_normalized']);
+    expect($trigramColumns)->toBe(['active_ingredient', 'base_name', 'name_compact', 'name_normalized']);
 });

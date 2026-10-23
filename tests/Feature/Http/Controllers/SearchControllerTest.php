@@ -25,6 +25,7 @@ function offer(PriceUpload $upload, string $pharmacy, string $name, float $price
             'name_normalized' => $normalized->normalized,
             'name_skeleton' => $normalized->skeleton,
             'base_name' => $normalized->baseName,
+            'name_compact' => str_replace(' ', '', $normalized->baseName),
             'active_ingredient' => $normalized->activeIngredient,
             'pack_count' => $normalized->packCount,
             'dose' => $normalized->dose,

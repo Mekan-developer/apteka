@@ -79,6 +79,7 @@ class PriceImportService
         }
 
         $this->uploads->markImported($upload, $sheetsOk, $rowsTotal);
+        $this->items->refreshStatistics();
     }
 
     /**
@@ -180,6 +181,7 @@ class PriceImportService
             'name_normalized' => $item->name->normalized,
             'name_skeleton' => mb_substr($item->name->skeleton, 0, 255),
             'base_name' => $item->name->baseName,
+            'name_compact' => str_replace(' ', '', $item->name->baseName),
             'active_ingredient' => $item->name->activeIngredient,
             'pack_count' => $item->name->packCount,
             'dose' => $item->name->dose === null ? null : mb_substr($item->name->dose, 0, 255),

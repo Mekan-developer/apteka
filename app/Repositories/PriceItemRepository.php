@@ -30,6 +30,15 @@ class PriceItemRepository
     }
 
     /**
+     * Refresh the planner statistics after an import. With stale statistics Postgres checks every product
+     * of the upload (~120 ms per search) instead of using the trigram indexes (~5 ms).
+     */
+    public function refreshStatistics(): void
+    {
+        DB::statement('analyze price_items');
+    }
+
+    /**
      * A sheet's products are the upload's products of its pharmacy.
      */
     public function deleteForSheet(PriceUploadSheet $sheet): void
@@ -62,17 +71,25 @@ class PriceItemRepository
         float $skeletonScore,
         int $perPack,
     ): Collection {
-        $useSkeleton = mb_strlen($skeleton) >= 3;
-
         // «ношпа» and «Но-шпа» («но шпа» once normalized) meet when spaces are ignored.
         $compactTerm = str_replace(' ', '', $term);
 
+        $scoreSql = [
+            'strict_word_similarity(?, pi.base_name)',
+            'coalesce(strict_word_similarity(?, pi.active_ingredient), 0)',
+            'strict_word_similarity(?, pi.name_compact)',
+        ];
         $scoreBindings = [$term, $term, $compactTerm];
-        $skeletonScoreSql = '';
+        $matchSql = ['? <<% pi.base_name', '? <<% pi.active_ingredient', '? <<% pi.name_compact'];
+        $matchBindings = [$term, $term, $compactTerm];
 
-        if ($useSkeleton) {
-            $skeletonScoreSql = ', case when starts_with(pi.name_skeleton, ?) then ?::real else 0 end';
-            array_push($scoreBindings, $skeleton, $skeletonScore);
+        if (mb_strlen($skeleton) >= 3) {
+            // The skeleton holds only consonant letters, so it never contains LIKE wildcards.
+            $scoreSql[] = 'case when pi.name_skeleton like ? then ?::real else 0 end';
+            array_push($scoreBindings, $skeleton.'%', $skeletonScore);
+
+            $matchSql[] = 'pi.name_skeleton like ?';
+            $matchBindings[] = $skeleton.'%';
         }
 
         $filterBindings = [$upload->id];
@@ -83,32 +100,17 @@ class PriceItemRepository
             $filterBindings[] = $packCount;
         }
 
-        array_push($filterBindings, $term, $term, $compactTerm, $threshold);
-        $skeletonMatchSql = '';
-
-        if ($useSkeleton) {
-            $skeletonMatchSql = 'or starts_with(pi.name_skeleton, ?)';
-            $filterBindings[] = $skeleton;
-        }
+        $scoreSql = implode(', ', $scoreSql);
+        $matchSql = implode(' or ', $matchSql);
+        $filterBindings = [...$filterBindings, ...$matchBindings];
 
         $sql = <<<SQL
             with candidates as (
-                select pi.*,
-                    greatest(
-                        strict_word_similarity(?, pi.base_name),
-                        coalesce(strict_word_similarity(?, pi.active_ingredient), 0),
-                        strict_word_similarity(?, replace(pi.base_name, ' ', ''))
-                        {$skeletonScoreSql}
-                    ) as score
+                select pi.*, greatest({$scoreSql}) as score
                 from price_items pi
                 where pi.price_upload_id = ?
                     {$packSql}
-                    and (
-                        ? <<% pi.base_name
-                        or ? <<% pi.active_ingredient
-                        or strict_word_similarity(?, replace(pi.base_name, ' ', '')) >= ?::real
-                        {$skeletonMatchSql}
-                    )
+                    and ({$matchSql})
             ),
             relevant as (
                 select *, max(score) over () as best_score

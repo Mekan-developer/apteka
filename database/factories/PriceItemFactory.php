@@ -32,6 +32,7 @@ class PriceItemFactory extends Factory
             'name_normalized' => mb_strtolower($rawName),
             'name_skeleton' => preg_replace('/(.)\1+/u', '$1', (string) preg_replace('/[^бвгджзйклмнпрстфхцчшщ]/u', '', $baseName)),
             'base_name' => $baseName,
+            'name_compact' => str_replace(' ', '', $baseName),
             'active_ingredient' => null,
             'pack_count' => $packCount,
             'dose' => $dose,

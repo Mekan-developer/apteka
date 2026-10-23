@@ -49,6 +49,7 @@ test('importing a price file saves every pharmacy with its products and discount
         ->and(Pharmacy::query()->orderBy('name')->pluck('name')->all())->toBe(['Ashgabat', 'Kamat', 'Notes'])
         ->and($citramon->pharmacy->name)->toBe('Kamat')
         ->and($citramon->base_name)->toBe('цитрамон боримед')
+        ->and($citramon->name_compact)->toBe('цитрамонборимед')
         ->and($citramon->pack_count)->toBe(6)
         ->and($citramon->price)->toBe('1.50')
         ->and($citramon->effective_price)->toBe('1.50')
