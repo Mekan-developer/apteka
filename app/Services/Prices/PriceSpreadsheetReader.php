@@ -70,6 +70,31 @@ class PriceSpreadsheetReader
     }
 
     /**
+     * One sheet with all its non-empty rows; the rows of the other sheets are not read.
+     *
+     * @throws OpenSpoutException When the file is missing or is not a readable .xlsx file.
+     */
+    public function sheet(string $path, int $index): ?SheetRows
+    {
+        $reader = new Reader;
+        $reader->open($path);
+
+        try {
+            foreach ($reader->getSheetIterator() as $sheet) {
+                if ($sheet->getIndex() === $index) {
+                    return $this->rows($sheet);
+                }
+            }
+
+            return null;
+        } finally {
+            $reader->close();
+            unset($reader);
+            gc_collect_cycles();
+        }
+    }
+
+    /**
      * Yield every sheet of the file with all its non-empty rows keyed by Excel row number.
      *
      * @return Generator<int, SheetRows>

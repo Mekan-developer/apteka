@@ -63,4 +63,24 @@ class PriceUploadRepository
     {
         $upload->update(['status' => PriceUploadStatus::Failed]);
     }
+
+    public function updateTotals(PriceUpload $upload, int $sheetsOk, int $rowsTotal): void
+    {
+        $upload->update(['sheets_ok' => $sheetsOk, 'rows_total' => $rowsTotal]);
+    }
+
+    /**
+     * The upload search used so far becomes history.
+     */
+    public function archiveActive(): void
+    {
+        PriceUpload::query()
+            ->where('status', PriceUploadStatus::Active)
+            ->update(['status' => PriceUploadStatus::Archived]);
+    }
+
+    public function activate(PriceUpload $upload): void
+    {
+        $upload->update(['status' => PriceUploadStatus::Active, 'activated_at' => now()]);
+    }
 }

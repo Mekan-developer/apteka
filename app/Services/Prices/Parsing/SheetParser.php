@@ -12,7 +12,8 @@ use DateTimeInterface;
  */
 final class SheetParser
 {
-    private const int PREVIEW_ROWS = 10;
+    /** Enough to see the header (up to row ~9 on real sheets) and the first products below it. */
+    private const int PREVIEW_ROWS = 15;
 
     /** Below this share of priced rows the price column was most likely detected wrong. */
     private const float MIN_PRICED_SHARE = 0.5;
@@ -41,7 +42,7 @@ final class SheetParser
             return new SheetParseResult($sheetName, PriceUploadSheetStatus::Skipped, null, [], [], null, $preview);
         }
 
-        $mapping ??= $this->headers->detect($rows);
+        $mapping = $mapping === null ? $this->headers->detect($rows) : $this->headers->complete($rows, $mapping);
 
         if ($mapping === null) {
             return $this->needsReview($sheetName, null, ReviewReason::ColumnsNotDetected, $preview);

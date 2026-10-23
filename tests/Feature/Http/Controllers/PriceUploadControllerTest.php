@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\PriceUploadSheetStatus;
 use App\Enums\PriceUploadStatus;
 use App\Jobs\ImportPriceUploadJob;
 use App\Models\PriceUpload;
@@ -119,6 +120,61 @@ test('the upload page shows the import progress and the result of every sheet in
             ->where('upload.sheets.1.sheet_name', 'Sirin Nabat')
             ->where('upload.sheets.1.review_reason', 'few_prices')
         );
+});
+
+test('activating an upload makes search use it and moves the previous one to history', function () {
+    $previous = PriceUpload::factory()->active()->create();
+    $upload = PriceUpload::factory()->create(['status' => PriceUploadStatus::NeedsReview, 'original_filename' => 'prices-22.10.xlsx']);
+
+    $this->actingAs(User::factory()->create())
+        ->post(route('price-uploads.activate', $upload))
+        ->assertRedirect(route('price-uploads.show', $upload))
+        ->assertSessionHas('notify', [
+            'type' => 'success',
+            'message' => 'Прайс «prices-22.10.xlsx» активирован. Поиск теперь работает по нему, предыдущий прайс перенесён в архив.',
+        ]);
+
+    expect($upload->refresh()->status)->toBe(PriceUploadStatus::Active)
+        ->and($upload->activated_at)->not->toBeNull()
+        ->and($previous->refresh()->status)->toBe(PriceUploadStatus::Archived);
+});
+
+test('an archived upload can be activated again to roll back', function () {
+    $current = PriceUpload::factory()->active()->create();
+    $archived = PriceUpload::factory()->archived()->create();
+
+    $this->actingAs(User::factory()->create())->post(route('price-uploads.activate', $archived));
+
+    expect($archived->refresh()->status)->toBe(PriceUploadStatus::Active)
+        ->and($current->refresh()->status)->toBe(PriceUploadStatus::Archived);
+});
+
+test('an upload that is not ready is not activated', function (PriceUploadStatus $status) {
+    $active = PriceUpload::factory()->active()->create();
+    $upload = PriceUpload::factory()->create(['status' => $status]);
+
+    $this->actingAs(User::factory()->create())
+        ->post(route('price-uploads.activate', $upload))
+        ->assertSessionHas('notify', [
+            'type' => 'error',
+            'message' => 'Этот прайс нельзя активировать: он ещё разбирается, уже активен или его не удалось разобрать.',
+        ]);
+
+    expect($upload->refresh()->status)->toBe($status)
+        ->and($active->refresh()->status)->toBe(PriceUploadStatus::Active);
+})->with([
+    'queued' => PriceUploadStatus::Uploaded,
+    'being imported' => PriceUploadStatus::Processing,
+    'failed' => PriceUploadStatus::Failed,
+]);
+
+test('an upload is not activated while one of its sheets is being parsed again', function () {
+    $upload = PriceUpload::factory()->create(['status' => PriceUploadStatus::NeedsReview]);
+    PriceUploadSheet::factory()->for($upload)->create(['status' => PriceUploadSheetStatus::Processing]);
+
+    $this->actingAs(User::factory()->create())->post(route('price-uploads.activate', $upload));
+
+    expect($upload->refresh()->status)->toBe(PriceUploadStatus::NeedsReview);
 });
 
 test('an unknown upload is not found', function () {

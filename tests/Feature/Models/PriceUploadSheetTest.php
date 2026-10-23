@@ -19,7 +19,11 @@ test('different uploads may each have a sheet at the same position', function ()
 });
 
 test('status and the raw preview rows are read back as an enum and an array', function () {
-    $preview = [['ПРАЙС ЛИСТ'], ['№', 'Наименование', 'Цена'], [1, 'Цитрамон №6', '2,50 man.']];
+    $preview = [
+        ['row' => 1, 'cells' => ['ПРАЙС ЛИСТ']],
+        ['row' => 4, 'cells' => ['№', 'Наименование', 'Цена']],
+        ['row' => 6, 'cells' => [1, 'Цитрамон №6', '2,50 man.']],
+    ];
 
     $sheet = PriceUploadSheet::factory()->needsReview()->create(['preview_json' => $preview])->fresh();
 

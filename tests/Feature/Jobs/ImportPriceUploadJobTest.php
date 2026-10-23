@@ -15,19 +15,6 @@ use Illuminate\Support\Facades\Storage;
 use OpenSpout\Common\Exception\IOException;
 
 /**
- * An upload whose stored file holds the given sheets.
- *
- * @param  array<string, list<list<mixed>>>  $sheets
- */
-function uploadWithSheets(array $sheets): PriceUpload
-{
-    Storage::fake('local');
-    Storage::disk('local')->put('price-uploads/prices.xlsx', (string) file_get_contents(xlsxFile($sheets)));
-
-    return PriceUpload::factory()->create(['stored_path' => 'price-uploads/prices.xlsx']);
-}
-
-/**
  * @return array<string, list<list<mixed>>>
  */
 function weeklySheets(): array

@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\PriceUpload;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use OpenSpout\Common\Entity\Cell;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Writer\XLSX\Writer;
@@ -65,6 +67,19 @@ function priceSheetRows(string $sheetName): array
     $sheets ??= require __DIR__.'/fixtures/prices/sheets.php';
 
     return $sheets[$sheetName];
+}
+
+/**
+ * An upload whose stored file holds the given sheets, on a faked local disk.
+ *
+ * @param  array<string, list<list<mixed>>>  $sheets  Sheet name => rows.
+ */
+function uploadWithSheets(array $sheets): PriceUpload
+{
+    Storage::fake('local');
+    Storage::disk('local')->put('price-uploads/prices.xlsx', (string) file_get_contents(xlsxFile($sheets)));
+
+    return PriceUpload::factory()->create(['stored_path' => 'price-uploads/prices.xlsx']);
 }
 
 /**

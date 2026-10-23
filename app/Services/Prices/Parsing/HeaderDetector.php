@@ -51,6 +51,32 @@ final class HeaderDetector
     }
 
     /**
+     * Columns an admin chose cover only the name and prices: the goods discount and manufacturer
+     * columns are still read from the header labels.
+     *
+     * @param  array<int, list<bool|DateInterval|DateTimeInterface|float|int|string|null>>  $rows
+     */
+    public function complete(array $rows, ColumnMapping $mapping): ColumnMapping
+    {
+        if ($mapping->headerRow === null || ! isset($rows[$mapping->headerRow])) {
+            return $mapping;
+        }
+
+        $labels = $this->labels($rows[$mapping->headerRow]);
+        $taken = [$mapping->nameCol, $mapping->priceCol, $mapping->priceDiscountedCol];
+
+        return new ColumnMapping(
+            headerRow: $mapping->headerRow,
+            lastHeaderRow: $mapping->lastHeaderRow,
+            nameCol: $mapping->nameCol,
+            priceCol: $mapping->priceCol,
+            priceDiscountedCol: $mapping->priceDiscountedCol,
+            goodsDiscountCol: $mapping->goodsDiscountCol ?? $this->firstColumn($labels, self::GOODS_DISCOUNT_LABEL, except: $taken),
+            manufacturerCol: $mapping->manufacturerCol ?? $this->firstColumn($labels, self::MANUFACTURER_LABEL, except: $taken),
+        );
+    }
+
+    /**
      * @param  array<int, list<bool|DateInterval|DateTimeInterface|float|int|string|null>>  $rows
      */
     private function detectFromHeader(array $rows): ?ColumnMapping

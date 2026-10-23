@@ -38,9 +38,9 @@ class PriceUploadSheetFactory extends Factory
             'rows_parsed' => fake()->numberBetween(10, 1000),
             'error' => null,
             'preview_json' => [
-                ['ПРАЙС ЛИСТ'],
-                ['№', 'Наименование', 'Цена'],
-                [1, 'Цитрамон таб. №6', 1.5],
+                ['row' => 1, 'cells' => ['ПРАЙС ЛИСТ']],
+                ['row' => 4, 'cells' => ['№', 'Наименование', 'Цена']],
+                ['row' => 5, 'cells' => [1, 'Цитрамон таб. №6', 1.5]],
             ],
         ];
     }

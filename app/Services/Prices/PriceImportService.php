@@ -5,8 +5,10 @@ namespace App\Services\Prices;
 use App\Enums\PriceUploadSheetStatus;
 use App\Models\Pharmacy;
 use App\Models\PriceUpload;
+use App\Models\PriceUploadSheet;
 use App\Repositories\DiscountRuleRepository;
 use App\Repositories\PharmacyRepository;
+use App\Repositories\PharmacySheetMappingRepository;
 use App\Repositories\PriceItemRepository;
 use App\Repositories\PriceUploadRepository;
 use App\Repositories\PriceUploadSheetRepository;
@@ -34,6 +36,7 @@ class PriceImportService
         private readonly PriceUploadSheetRepository $sheets,
         private readonly PriceItemRepository $items,
         private readonly DiscountRuleRepository $discountRules,
+        private readonly PharmacySheetMappingRepository $mappings,
     ) {}
 
     /**
@@ -42,7 +45,7 @@ class PriceImportService
      */
     public function import(PriceUpload $upload): void
     {
-        $path = Storage::disk(config('prices.disk'))->path($upload->stored_path);
+        $path = $this->path($upload);
         $sheetsTotal = count($this->reader->sheetNames($path));
 
         DB::transaction(function () use ($upload, $sheetsTotal): void {
@@ -59,7 +62,17 @@ class PriceImportService
             $pharmacy = $this->pharmacies->findOrCreateByName(trim($sheet->name));
             $result = $this->parser->parse($sheet->name, $sheet->rows, $this->savedMapping($pharmacy, $sheet->rows));
 
-            DB::transaction(fn () => $this->store($upload, $pharmacy, $sheet->index, $result));
+            DB::transaction(function () use ($upload, $pharmacy, $sheet, $result): void {
+                $this->sheets->create([
+                    'price_upload_id' => $upload->id,
+                    'pharmacy_id' => $pharmacy->id,
+                    'sheet_name' => $result->sheetName,
+                    'sheet_index' => $sheet->index,
+                    ...$this->sheetAttributes($result),
+                ]);
+
+                $this->storeProducts($upload, $pharmacy, $result);
+            });
 
             $sheetsOk += $result->status === PriceUploadSheetStatus::Parsed ? 1 : 0;
             $rowsTotal += count($result->items);
@@ -68,9 +81,53 @@ class PriceImportService
         $this->uploads->markImported($upload, $sheetsOk, $rowsTotal);
     }
 
+    /**
+     * Parse one sheet again with the columns an admin chose. When that works, the columns are
+     * remembered for the pharmacy and applied to its sheet in the next uploads.
+     */
+    public function reparseSheet(PriceUploadSheet $sheet, ColumnMapping $mapping): void
+    {
+        $sheet = $this->sheets->loadForReparse($sheet);
+        $upload = $sheet->priceUpload;
+        $pharmacy = $sheet->pharmacy;
+
+        $rows = $this->reader->sheet($this->path($upload), $sheet->sheet_index)->rows ?? [];
+        $result = $this->parser->parse($sheet->sheet_name, $rows, $mapping);
+
+        DB::transaction(function () use ($sheet, $upload, $pharmacy, $mapping, $rows, $result): void {
+            $this->items->deleteForSheet($sheet);
+            $this->discountRules->deleteForSheet($sheet);
+            $this->sheets->update($sheet, $this->sheetAttributes($result));
+            $this->storeProducts($upload, $pharmacy, $result);
+
+            if ($result->status === PriceUploadSheetStatus::Parsed && $mapping->headerRow !== null) {
+                $this->mappings->saveForPharmacy($pharmacy, [
+                    'header_row' => $mapping->headerRow,
+                    'name_col' => $mapping->nameCol,
+                    'price_col' => $mapping->priceCol,
+                    'price_discounted_col' => $mapping->priceDiscountedCol,
+                    'header_signature' => HeaderSignature::of($rows[$mapping->headerRow] ?? []),
+                ]);
+            }
+
+            $totals = $this->sheets->totalsForUpload($upload);
+            $this->uploads->updateTotals($upload, $totals['sheetsOk'], $totals['rowsTotal']);
+        });
+    }
+
     public function markFailed(PriceUpload $upload): void
     {
         $this->uploads->markFailed($upload);
+    }
+
+    public function markSheetFailed(PriceUploadSheet $sheet, string $error): void
+    {
+        $this->sheets->markFailed($sheet, $error);
+    }
+
+    private function path(PriceUpload $upload): string
+    {
+        return Storage::disk(config('prices.disk'))->path($upload->stored_path);
     }
 
     /**
@@ -97,13 +154,12 @@ class PriceImportService
         );
     }
 
-    private function store(PriceUpload $upload, Pharmacy $pharmacy, int $sheetIndex, SheetParseResult $result): void
+    /**
+     * @return array<string, mixed>
+     */
+    private function sheetAttributes(SheetParseResult $result): array
     {
-        $this->sheets->create([
-            'price_upload_id' => $upload->id,
-            'pharmacy_id' => $pharmacy->id,
-            'sheet_name' => $result->sheetName,
-            'sheet_index' => $sheetIndex,
+        return [
             'status' => $result->status,
             'header_row' => $result->mapping?->headerRow,
             'name_col' => $result->mapping?->nameCol,
@@ -112,8 +168,11 @@ class PriceImportService
             'rows_parsed' => count($result->items),
             'error' => $result->reviewReason?->value,
             'preview_json' => $result->preview,
-        ]);
+        ];
+    }
 
+    private function storeProducts(PriceUpload $upload, Pharmacy $pharmacy, SheetParseResult $result): void
+    {
         $this->items->insertMany(array_map(fn (ParsedItem $item): array => [
             'price_upload_id' => $upload->id,
             'pharmacy_id' => $pharmacy->id,

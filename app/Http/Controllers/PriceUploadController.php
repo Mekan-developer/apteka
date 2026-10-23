@@ -39,6 +39,20 @@ class PriceUploadController extends Controller
     }
 
     /**
+     * Make the upload the one search uses.
+     */
+    public function activate(PriceUpload $priceUpload): RedirectResponse
+    {
+        if ($this->uploads->activate($priceUpload)) {
+            notify('success', __('messages.price_upload_activated', ['name' => $priceUpload->original_filename]));
+        } else {
+            notify('error', __('messages.price_upload_cannot_activate'));
+        }
+
+        return to_route('price-uploads.show', $priceUpload);
+    }
+
+    /**
      * Show the import progress and the result of every sheet.
      */
     public function show(PriceUpload $priceUpload): Response

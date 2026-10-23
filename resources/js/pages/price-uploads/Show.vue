@@ -1,13 +1,25 @@
 <script setup lang="ts">
-import { Head, setLayoutProps, usePoll } from '@inertiajs/vue3';
+import { Form, Head, Link, setLayoutProps, usePoll } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
+import PriceUploadController from '@/actions/App/Http/Controllers/PriceUploadController';
 import Heading from '@/components/Heading.vue';
+import PriceUploadSheetStatusBadge from '@/components/PriceUploadSheetStatusBadge.vue';
 import PriceUploadStatusBadge from '@/components/PriceUploadStatusBadge.vue';
-import { Badge } from '@/components/ui/badge';
-import type { BadgeVariants } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { useTrans } from '@/composables/useTrans';
 import { index, show } from '@/routes/price-uploads';
-import type { PriceUpload, PriceUploadSheetStatus } from '@/types';
+import { show as showSheet } from '@/routes/price-uploads/sheets';
+import type { PriceUpload } from '@/types';
 
 const props = defineProps<{
     upload: PriceUpload;
@@ -22,16 +34,23 @@ setLayoutProps({
     ],
 });
 
-const sheetVariants: Record<PriceUploadSheetStatus, BadgeVariants['variant']> =
-    {
-        parsed: 'outline',
-        needs_review: 'secondary',
-        skipped: 'outline',
-        failed: 'destructive',
-    };
-
 const isImporting = computed(() =>
     ['uploaded', 'processing'].includes(props.upload.status),
+);
+const hasSheetInProgress = computed(
+    () =>
+        props.upload.sheets?.some((sheet) => sheet.status === 'processing') ??
+        false,
+);
+const canActivate = computed(
+    () =>
+        ['needs_review', 'archived'].includes(props.upload.status) &&
+        !hasSheetInProgress.value,
+);
+const sheetsToReview = computed(
+    () =>
+        props.upload.sheets?.filter((sheet) => sheet.status === 'needs_review')
+            .length ?? 0,
 );
 const processed = computed(() => props.upload.sheets_processed ?? 0);
 const percent = computed(() =>
@@ -40,16 +59,18 @@ const percent = computed(() =>
         : 0,
 );
 
-// Refresh the progress while the queue works on the file, then stop.
+// Refresh while the queue works on the file or on a sheet, then stop.
 const { start, stop } = usePoll(
     2000,
     { only: ['upload'] },
     { autoStart: false },
 );
 
-watch(isImporting, (importing) => (importing ? start() : stop()), {
-    immediate: true,
-});
+watch(
+    () => isImporting.value || hasSheetInProgress.value,
+    (working) => (working ? start() : stop()),
+    { immediate: true },
+);
 </script>
 
 <template>
@@ -61,7 +82,57 @@ watch(isImporting, (importing) => (importing ? start() : stop()), {
                 :title="upload.original_filename"
                 :description="upload.uploaded_by ?? undefined"
             />
-            <PriceUploadStatusBadge :status="upload.status" />
+
+            <div class="flex items-center gap-3">
+                <PriceUploadStatusBadge :status="upload.status" />
+
+                <Dialog v-if="canActivate">
+                    <DialogTrigger as-child>
+                        <Button data-test="activate-upload-button">{{
+                            t('price_uploads.activate')
+                        }}</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <Form
+                            v-bind="
+                                PriceUploadController.activate.form(upload.id)
+                            "
+                            class="space-y-6"
+                            v-slot="{ processing }"
+                        >
+                            <DialogHeader class="space-y-3">
+                                <DialogTitle>{{
+                                    t('price_uploads.activate_title')
+                                }}</DialogTitle>
+                                <DialogDescription>{{
+                                    t('price_uploads.activate_description')
+                                }}</DialogDescription>
+                                <p
+                                    v-if="sheetsToReview > 0"
+                                    class="text-sm text-amber-600 dark:text-amber-400"
+                                >
+                                    {{
+                                        t(
+                                            'price_uploads.activate_review_warning',
+                                            { count: sheetsToReview },
+                                        )
+                                    }}
+                                </p>
+                            </DialogHeader>
+                            <DialogFooter class="gap-2">
+                                <DialogClose as-child>
+                                    <Button variant="secondary">{{
+                                        t('price_uploads.cancel')
+                                    }}</Button>
+                                </DialogClose>
+                                <Button type="submit" :disabled="processing">{{
+                                    t('price_uploads.activate')
+                                }}</Button>
+                            </DialogFooter>
+                        </Form>
+                    </DialogContent>
+                </Dialog>
+            </div>
         </div>
 
         <section
@@ -124,6 +195,7 @@ watch(isImporting, (importing) => (importing ? start() : stop()), {
                         <th class="px-4 py-2 font-medium">
                             {{ t('price_uploads.columns.reason') }}
                         </th>
+                        <th class="px-4 py-2" />
                     </tr>
                 </thead>
                 <tbody>
@@ -138,16 +210,22 @@ watch(isImporting, (importing) => (importing ? start() : stop()), {
                             {{ sheet.sheet_index + 1 }}
                         </td>
                         <td class="px-4 py-2 font-medium">
-                            {{ sheet.sheet_name }}
+                            <Link
+                                :href="
+                                    showSheet({
+                                        price_upload: upload.id,
+                                        sheet: sheet.id,
+                                    })
+                                "
+                                class="underline-offset-4 hover:underline"
+                            >
+                                {{ sheet.sheet_name }}
+                            </Link>
                         </td>
                         <td class="px-4 py-2">
-                            <Badge :variant="sheetVariants[sheet.status]">
-                                {{
-                                    t(
-                                        `price_uploads.sheet_statuses.${sheet.status}`,
-                                    )
-                                }}
-                            </Badge>
+                            <PriceUploadSheetStatusBadge
+                                :status="sheet.status"
+                            />
                         </td>
                         <td class="px-4 py-2 text-right tabular-nums">
                             {{ sheet.rows_parsed }}
@@ -160,6 +238,28 @@ watch(isImporting, (importing) => (importing ? start() : stop()), {
                                       )
                                     : ''
                             }}
+                        </td>
+                        <td class="px-4 py-2 text-right">
+                            <Button
+                                v-if="
+                                    sheet.status === 'needs_review' ||
+                                    sheet.status === 'failed'
+                                "
+                                variant="outline"
+                                size="sm"
+                                as-child
+                            >
+                                <Link
+                                    :href="
+                                        showSheet({
+                                            price_upload: upload.id,
+                                            sheet: sheet.id,
+                                        })
+                                    "
+                                >
+                                    {{ t('price_uploads.review_sheet') }}
+                                </Link>
+                            </Button>
                         </td>
                     </tr>
                 </tbody>

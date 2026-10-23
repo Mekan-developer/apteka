@@ -184,6 +184,10 @@ return [
         'locale' => 'Dil',
         'image' => 'Surat',
         'file' => 'Baha sanawly faýl',
+        'header_row' => 'Sözbaşy setiri',
+        'name_col' => 'Adyň sütüni',
+        'price_col' => 'Bahanyň sütüni',
+        'price_discounted_col' => 'Arzanladylan bahanyň sütüni',
     ],
 
 ];
