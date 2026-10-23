@@ -2,6 +2,7 @@
 import type { HTMLAttributes } from "vue"
 import { PanelLeftClose, PanelLeftOpen } from "@lucide/vue"
 import { cn } from "@/lib/utils"
+import { useTrans } from "@/composables/useTrans"
 import { Button } from '@/components/ui/button'
 import { useSidebar } from "./utils"
 
@@ -10,6 +11,8 @@ const props = defineProps<{
 }>()
 
 const { isMobile, state, toggleSidebar } = useSidebar()
+
+const { t } = useTrans()
 </script>
 
 <template>
@@ -23,6 +26,6 @@ const { isMobile, state, toggleSidebar } = useSidebar()
   >
     <PanelLeftOpen v-if="isMobile || state === 'collapsed'" />
     <PanelLeftClose v-else />
-    <span class="sr-only">Toggle sidebar</span>
+    <span class="sr-only">{{ t("nav.toggle_sidebar") }}</span>
   </Button>
 </template>
