@@ -1,6 +1,9 @@
 <?php
 
+use App\Models\Pharmacy;
+use App\Models\PriceItem;
 use App\Models\PriceUpload;
+use App\Services\Prices\Parsing\NameNormalizer;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -67,6 +70,35 @@ function priceSheetRows(string $sheetName): array
     $sheets ??= require __DIR__.'/fixtures/prices/sheets.php';
 
     return $sheets[$sheetName];
+}
+
+/**
+ * A product of a pharmacy's sheet, normalized the way the import normalizes it.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function offer(PriceUpload $upload, string $pharmacy, string $name, float $price, array $attributes = []): PriceItem
+{
+    $normalized = (new NameNormalizer)->normalize($name);
+
+    return PriceItem::factory()
+        ->for($upload)
+        ->for(Pharmacy::query()->firstOrCreate(['name' => $pharmacy]))
+        ->create([
+            'raw_name' => $name,
+            'name_normalized' => $normalized->normalized,
+            'name_skeleton' => $normalized->skeleton,
+            'base_name' => $normalized->baseName,
+            'name_compact' => str_replace(' ', '', $normalized->baseName),
+            'active_ingredient' => $normalized->activeIngredient,
+            'pack_count' => $normalized->packCount,
+            'dose' => $normalized->dose,
+            'price' => $price,
+            'price_discounted' => null,
+            'effective_price' => $price,
+            'goods_discount_percent' => null,
+            ...$attributes,
+        ]);
 }
 
 /**

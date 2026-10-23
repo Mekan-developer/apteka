@@ -5,9 +5,25 @@ namespace App\Repositories;
 use App\Enums\PriceUploadStatus;
 use App\Models\PriceUpload;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 class PriceUploadRepository
 {
+    /**
+     * Uploads search used or uses, newest first, for the price history.
+     *
+     * @return Collection<int, PriceUpload>
+     */
+    public function recentPublished(int $limit): Collection
+    {
+        return PriceUpload::query()
+            ->whereIn('status', [PriceUploadStatus::Active, PriceUploadStatus::Archived])
+            ->whereNotNull('activated_at')
+            ->latest('activated_at')
+            ->limit($limit)
+            ->get();
+    }
+
     /**
      * The upload search uses; the database allows only one.
      */

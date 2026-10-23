@@ -53,19 +53,7 @@ class PriceSearchService
             return [];
         }
 
-        $name = $this->normalizer->normalize($query);
-        $term = $this->term($query);
-
-        $offers = $this->items->cheapestOffers(
-            upload: $upload,
-            terms: [$term, ...$this->synonyms->namesRelatedTo($term)],
-            skeleton: $name->skeleton,
-            packCount: $name->packCount,
-            threshold: (float) config('prices.search.similarity_threshold'),
-            relativeGap: (float) config('prices.search.relative_gap'),
-            skeletonScore: (float) config('prices.search.skeleton_score'),
-            perPack: (int) config('prices.search.offers_per_pack'),
-        );
+        $offers = $this->cheapestOffersIn($upload, $query, (int) config('prices.search.offers_per_pack'));
 
         $this->attachSheetDiscounts($upload, $offers);
 
@@ -73,6 +61,58 @@ class PriceSearchService
             ->groupBy(fn (PriceItem $offer): string => (string) $offer->pack_count)
             ->map(fn (Collection $group): PriceSearchGroup => new PriceSearchGroup($group->first()?->pack_count, $group->values()))
             ->all());
+    }
+
+    /**
+     * The cheapest offer of every pack size in each of the last published uploads (active and archived),
+     * found exactly like the public search finds it.
+     */
+    public function history(string $query): PriceHistory
+    {
+        $uploads = $this->uploads->recentPublished((int) config('prices.history.uploads'));
+        $offersByPack = [];
+
+        foreach ($uploads as $upload) {
+            foreach ($this->cheapestOffersIn($upload, $query, 1) as $offer) {
+                $offersByPack[(string) $offer->pack_count][$upload->id] = $offer;
+            }
+        }
+
+        // Known pack sizes first, smallest first; products without a pack size (key '') last.
+        uksort($offersByPack, fn (int|string $a, int|string $b): int => match (true) {
+            $a === $b => 0,
+            $a === '' => 1,
+            $b === '' => -1,
+            default => (int) $a <=> (int) $b,
+        });
+
+        $rows = [];
+
+        foreach ($offersByPack as $packCount => $offers) {
+            $rows[] = new PriceHistoryRow($packCount === '' ? null : (int) $packCount, $offers);
+        }
+
+        return new PriceHistory($uploads, $rows);
+    }
+
+    /**
+     * @return Collection<int, PriceItem>
+     */
+    private function cheapestOffersIn(PriceUpload $upload, string $query, int $perPack): Collection
+    {
+        $name = $this->normalizer->normalize($query);
+        $term = $this->term($query);
+
+        return $this->items->cheapestOffers(
+            upload: $upload,
+            terms: [$term, ...$this->synonyms->namesRelatedTo($term)],
+            skeleton: $name->skeleton,
+            packCount: $name->packCount,
+            threshold: (float) config('prices.search.similarity_threshold'),
+            relativeGap: (float) config('prices.search.relative_gap'),
+            skeletonScore: (float) config('prices.search.skeleton_score'),
+            perPack: $perPack,
+        );
     }
 
     /**

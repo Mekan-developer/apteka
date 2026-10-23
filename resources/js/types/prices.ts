@@ -91,6 +91,12 @@ export type SearchGroup = {
     offers: SearchOffer[];
 };
 
+export type PriceHistoryRow = {
+    pack_count: number | null;
+    /** The cheapest offer of each upload; an upload is missing when nobody sold it. */
+    prices: { upload_id: number; offer: SearchOffer }[];
+};
+
 export type DrugSynonym = {
     id: number;
     term: string;

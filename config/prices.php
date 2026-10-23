@@ -44,4 +44,9 @@ return [
         'suggestion_threshold' => 0.3,
     ],
 
+    'history' => [
+        // How many of the last published uploads (weeks) the price history shows.
+        'uploads' => 8,
+    ],
+
 ];

@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DrugSynonymController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\PriceHistoryController;
 use App\Http\Controllers\PriceUploadController;
 use App\Http\Controllers\PriceUploadSheetController;
 use App\Http\Controllers\SearchController;
@@ -19,6 +20,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('price-uploads', PriceUploadController::class)->only(['index', 'store', 'show']);
         Route::post('price-uploads/{price_upload}/activate', [PriceUploadController::class, 'activate'])->name('price-uploads.activate');
         Route::resource('synonyms', DrugSynonymController::class)->only(['index', 'store', 'destroy']);
+        Route::get('price-history', PriceHistoryController::class)->name('price-history');
 
         Route::scopeBindings()->group(function () {
             Route::get('price-uploads/{price_upload}/sheets/{sheet}', [PriceUploadSheetController::class, 'show'])->name('price-uploads.sheets.show');

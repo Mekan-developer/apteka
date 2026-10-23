@@ -5,6 +5,7 @@ import {
     BookOpen,
     FileSpreadsheet,
     FolderGit2,
+    History,
     LayoutGrid,
     Users,
 } from '@lucide/vue';
@@ -23,7 +24,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useTrans } from '@/composables/useTrans';
-import { dashboard } from '@/routes';
+import { dashboard, priceHistory } from '@/routes';
 import { index as admins } from '@/routes/admins';
 import { index as priceUploads } from '@/routes/price-uploads';
 import { index as synonyms } from '@/routes/synonyms';
@@ -48,6 +49,11 @@ const mainNavItems = computed<NavItem[]>(() => [
         title: t('synonyms.title'),
         href: synonyms(),
         icon: ArrowLeftRight,
+    },
+    {
+        title: t('price_history.title'),
+        href: priceHistory(),
+        icon: History,
     },
     ...(page.props.auth.can.manageAdmins
         ? [{ title: t('admins.title'), href: admins(), icon: Users }]
