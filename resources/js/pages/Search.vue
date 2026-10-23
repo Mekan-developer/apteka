@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTrans } from '@/composables/useTrans';
-import { dashboard, home, login } from '@/routes';
+import { home, login } from '@/routes';
+import { index as priceUploads } from '@/routes/price-uploads';
 import type { DiscountRule, SearchGroup } from '@/types';
 
 defineProps<{
@@ -67,7 +68,9 @@ function discountLabel(discount: DiscountRule): string {
             <div class="flex items-center gap-2">
                 <LocaleSwitcher />
                 <Button variant="outline" size="sm" as-child>
-                    <Link :href="page.props.auth.user ? dashboard() : login()">
+                    <Link
+                        :href="page.props.auth.user ? priceUploads() : login()"
+                    >
                         {{
                             page.props.auth.user
                                 ? t('search.admin')

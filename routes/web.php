@@ -14,8 +14,6 @@ Route::get('/', SearchController::class)->middleware('throttle:search')->name('h
 Route::put('locale', LocaleController::class)->name('locale.update');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'Dashboard')->name('dashboard');
-
     Route::middleware('can:manage-prices')->group(function () {
         Route::resource('price-uploads', PriceUploadController::class)->only(['index', 'store', 'show']);
         Route::post('price-uploads/{price_upload}/activate', [PriceUploadController::class, 'activate'])->name('price-uploads.activate');

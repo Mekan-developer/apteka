@@ -9,17 +9,17 @@ test('switching to turkmen translates the following pages and notifications', fu
 
     $response = $this
         ->actingAs($user)
-        ->from(route('dashboard'))
+        ->from(route('price-uploads.index'))
         ->put(route('locale.update'), ['locale' => 'tk']);
 
     $response
-        ->assertRedirect(route('dashboard'))
+        ->assertRedirect(route('price-uploads.index'))
         ->assertSessionHas('notify', [
             'type' => 'success',
             'message' => 'Interfeýsiň dili türkmen diline üýtgedildi.',
         ]);
 
-    $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+    $this->get(route('price-uploads.index'))->assertInertia(fn (Assert $page) => $page
         ->where('locale', 'tk')
         ->where('translations', $translations)
     );

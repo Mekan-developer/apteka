@@ -20,13 +20,13 @@ test('a deactivated admin who enters the right password does not stay signed in'
     $admin = User::factory()->inactive()->create();
 
     $this->post(route('login.store'), ['email' => $admin->email, 'password' => 'password']);
-    $this->get(route('dashboard'))->assertRedirect(route('login'));
+    $this->get(route('price-uploads.index'))->assertRedirect(route('login'));
 
     $this->assertGuest();
 });
 
 test('an active admin keeps working', function () {
     $this->actingAs(User::factory()->create())
-        ->get(route('dashboard'))
+        ->get(route('price-uploads.index'))
         ->assertOk();
 });

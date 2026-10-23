@@ -10,7 +10,7 @@ test('a notify flash from the previous request reaches the page as inertia flash
     $response = $this
         ->actingAs($user)
         ->withSession(['notify' => $notification])
-        ->get(route('dashboard'));
+        ->get(route('price-uploads.index'));
 
     $response->assertInertia(fn (Assert $page) => $page->hasFlash('notify', $notification));
 });
@@ -18,7 +18,7 @@ test('a notify flash from the previous request reaches the page as inertia flash
 test('pages without a notification carry no notify flash', function () {
     $user = User::factory()->create();
 
-    $response = $this->actingAs($user)->get(route('dashboard'));
+    $response = $this->actingAs($user)->get(route('price-uploads.index'));
 
     $response->assertInertia(fn (Assert $page) => $page->missingFlash('notify'));
 });
@@ -27,7 +27,7 @@ test('pages share the current locale with its frontend translations', function (
     $user = User::factory()->create();
     $translations = json_decode(file_get_contents(lang_path('ru.json')), true);
 
-    $response = $this->actingAs($user)->get(route('dashboard'));
+    $response = $this->actingAs($user)->get(route('price-uploads.index'));
 
     $response->assertInertia(fn (Assert $page) => $page
         ->where('locale', 'ru')

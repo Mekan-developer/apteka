@@ -131,10 +131,10 @@ test('the super admin cannot deactivate or delete a super admin account, their o
 
 test('only the super admin is told they may manage admins', function () {
     $this->actingAs(User::factory()->create())
-        ->get(route('dashboard'))
+        ->get(route('price-uploads.index'))
         ->assertInertia(fn (Assert $page) => $page->where('auth.can.manageAdmins', false));
 
     $this->actingAs(User::factory()->superAdmin()->create())
-        ->get(route('dashboard'))
+        ->get(route('price-uploads.index'))
         ->assertInertia(fn (Assert $page) => $page->where('auth.can.manageAdmins', true));
 });
