@@ -17,4 +17,18 @@ final class ExcelColumn
 
         return $name;
     }
+
+    /**
+     * Zero-based index of an Excel column name: A → 0, Z → 25, AA → 26.
+     */
+    public static function index(string $name): int
+    {
+        $number = 0;
+
+        foreach (str_split(strtoupper($name)) as $letter) {
+            $number = $number * 26 + ord($letter) - ord('A') + 1;
+        }
+
+        return $number - 1;
+    }
 }

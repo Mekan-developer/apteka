@@ -9,6 +9,7 @@ use OpenSpout\Common\Entity\Cell;
 use OpenSpout\Common\Entity\Cell\FormulaCell;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Common\Exception\OpenSpoutException;
+use OpenSpout\Reader\XLSX\Options;
 use OpenSpout\Reader\XLSX\Reader;
 use OpenSpout\Reader\XLSX\Sheet;
 
@@ -18,6 +19,8 @@ use OpenSpout\Reader\XLSX\Sheet;
  * OpenSpout gives every sheet its own copy of the workbook styles and keeps all sheets until the
  * file is closed. Price files carry thousands of styles (~2 MB per sheet on the real file), so the
  * file is reopened every $sheetsPerOpen sheets to keep memory flat regardless of the sheet count.
+ *
+ * Empty rows are read too, only so that rows keep their Excel numbers: merged ranges refer to them.
  */
 class PriceSpreadsheetReader
 {
@@ -51,7 +54,7 @@ class PriceSpreadsheetReader
      */
     public function sheetNames(string $path): array
     {
-        $reader = new Reader;
+        $reader = $this->reader();
         $reader->open($path);
 
         try {
@@ -76,7 +79,7 @@ class PriceSpreadsheetReader
      */
     public function sheet(string $path, int $index): ?SheetRows
     {
-        $reader = new Reader;
+        $reader = $this->reader();
         $reader->open($path);
 
         try {
@@ -107,7 +110,7 @@ class PriceSpreadsheetReader
 
         do {
             $hasMoreSheets = false;
-            $reader = new Reader;
+            $reader = $this->reader();
             $reader->open($path);
 
             try {
@@ -136,6 +139,15 @@ class PriceSpreadsheetReader
         } while ($hasMoreSheets);
     }
 
+    private function reader(): Reader
+    {
+        $options = new Options;
+        $options->SHOULD_PRESERVE_EMPTY_ROWS = true;
+        $options->SHOULD_LOAD_MERGE_CELLS = true;
+
+        return new Reader($options);
+    }
+
     private function rows(Sheet $sheet): SheetRows
     {
         $rows = [];
@@ -148,7 +160,7 @@ class PriceSpreadsheetReader
             }
         }
 
-        return new SheetRows($sheet->getIndex(), $sheet->getName(), $rows);
+        return new SheetRows($sheet->getIndex(), $sheet->getName(), $rows, $sheet->getMergeCells());
     }
 
     /**

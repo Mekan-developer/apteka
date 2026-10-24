@@ -31,6 +31,27 @@ final class SheetParser
     ) {}
 
     /**
+     * The rows to parse: with merged cells read as one cell when that finds more products than the rows as stored.
+     *
+     * A merge over sub-columns (a «Цена» header above «опт» and «розн») must not be collapsed, so both readings
+     * are tried. The choice depends on the file alone, so the review screen and a reparse see the same columns.
+     *
+     * @param  array<int, list<bool|DateInterval|DateTimeInterface|float|int|string|null>>  $rows  Non-empty rows keyed by Excel row number.
+     * @param  list<string>  $merges  Merged ranges of the sheet, e.g. «D4:E4».
+     * @return array<int, list<bool|DateInterval|DateTimeInterface|float|int|string|null>>
+     */
+    public function visibleRows(array $rows, array $merges): array
+    {
+        $collapsed = MergedCells::collapse($rows, $merges);
+
+        if ($collapsed === $rows) {
+            return $rows;
+        }
+
+        return count($this->parse('', $collapsed)->items) > count($this->parse('', $rows)->items) ? $collapsed : $rows;
+    }
+
+    /**
      * @param  array<int, list<bool|DateInterval|DateTimeInterface|float|int|string|null>>  $rows  Non-empty rows keyed by Excel row number.
      * @param  ColumnMapping|null  $mapping  Columns an admin chose before; detected automatically when null.
      */

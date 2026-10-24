@@ -212,6 +212,45 @@ test('columns an admin chose are used instead of detection', function () {
     expect(itemNames($result))->toBe(['Бетасерк 16мг таб №30']);
 });
 
+/**
+ * A sheet that merges D:E on its first rows only, so the price is in F above and in E below.
+ *
+ * @return array<int, list<int|string>>
+ */
+function partlyMergedRows(): array
+{
+    return [
+        1 => ['№', 'Наименование', 'Ед. изм', '', 'Цена', 'Товарная скидка'],
+        2 => [1, 'Бромгексин 8мг таб №25', 'уп.', '', '18,50', '5%'],
+        3 => [2, 'Мезим форте таб №20', 'уп.', '', '25,00', '5%'],
+        5 => [3, 'Аскорбинка с глюкозой таб №10', 'уп.', '1,60', '5%'],
+        6 => [4, 'Анальгин таб 500мг №10', 'уп.', '4,00', '5%'],
+    ];
+}
+
+test('merged cells are read as one cell when that puts the price of every row into one column', function () {
+    $parser = new SheetParser;
+
+    $rows = $parser->visibleRows(partlyMergedRows(), ['C1:D1', 'C2:D2', 'C3:D3']);
+    $result = $parser->parse('Sirin Nabat', $rows);
+
+    expect($result->status)->toBe(PriceUploadSheetStatus::Parsed)
+        ->and($result->mapping?->priceCol)->toBe(3)
+        ->and(array_map(fn (ParsedItem $item): array => [$item->sourceRow, $item->price], $result->items))
+        ->toBe([[2, '18.50'], [3, '25.00'], [5, '1.60'], [6, '4.00']]);
+});
+
+test('rows stay as stored when reading merged cells as one cell finds no more products', function () {
+    $rows = [
+        1 => ['Наименование', 'Цена', '', 'Производитель'],
+        2 => ['', 'опт', 'розн'],
+        3 => ['Бинт марлевый 10см x 4м', '3,50', '4,00', 'Саглык'],
+        4 => ['Пластырь для инъекций №100', '10,50', '12,00', 'Саглык'],
+    ];
+
+    expect((new SheetParser)->visibleRows($rows, ['B1:C1']))->toBe($rows);
+});
+
 test('the preview keeps the first raw rows with their row numbers in a form that fits JSON', function () {
     $preview = parseSheet('Kamat')->preview;
 

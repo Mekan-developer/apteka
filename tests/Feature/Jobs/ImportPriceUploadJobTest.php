@@ -138,3 +138,25 @@ test('an upload whose import failed on every attempt is marked as failed', funct
 
     expect($upload->refresh()->status)->toBe(PriceUploadStatus::Failed);
 });
+
+test('a sheet that merges cells in part of its table is imported with every product and its excel row', function () {
+    $upload = uploadWithSheets([
+        'Sirin Nabat' => [
+            ['№', 'Наименование', 'Ед. изм', '', 'Цена', 'Товарная скидка'],
+            [1, 'Бромгексин 8мг таб №25', 'уп.', '', '18,50', '5%'],
+            [2, 'Мезим форте таб №20', 'уп.', '', '25,00', '5%'],
+            [],
+            [3, 'Аскорбинка с глюкозой таб №10', 'уп.', '1,60', '5%'],
+            [4, 'Анальгин таб 500мг №10', 'уп.', '4,00', '5%'],
+        ],
+    ], ['Sirin Nabat' => ['C1:D1', 'C2:D2', 'C3:D3']]);
+
+    ImportPriceUploadJob::dispatchSync($upload);
+
+    $sheet = PriceUploadSheet::query()->sole();
+
+    expect($sheet->status)->toBe(PriceUploadSheetStatus::Parsed)
+        ->and($sheet->price_col)->toBe(3)
+        ->and(PriceItem::query()->orderBy('source_row')->get(['source_row', 'price'])->map(fn (PriceItem $item): array => [$item->source_row, $item->price])->all())
+        ->toBe([[2, '18.50'], [3, '25.00'], [5, '1.60'], [6, '4.00']]);
+});

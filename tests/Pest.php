@@ -4,11 +4,13 @@ use App\Models\Pharmacy;
 use App\Models\PriceItem;
 use App\Models\PriceUpload;
 use App\Services\Prices\Parsing\NameNormalizer;
+use App\Support\ExcelColumn;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use OpenSpout\Common\Entity\Cell;
 use OpenSpout\Common\Entity\Row;
+use OpenSpout\Writer\XLSX\Options;
 use OpenSpout\Writer\XLSX\Writer;
 use Tests\TestCase;
 
@@ -105,11 +107,12 @@ function offer(PriceUpload $upload, string $pharmacy, string $name, float $price
  * An upload whose stored file holds the given sheets, on a faked local disk.
  *
  * @param  array<string, list<list<mixed>>>  $sheets  Sheet name => rows.
+ * @param  array<string, list<string>>  $merges  Sheet name => merged ranges, e.g. «D4:E4».
  */
-function uploadWithSheets(array $sheets): PriceUpload
+function uploadWithSheets(array $sheets, array $merges = []): PriceUpload
 {
     Storage::fake('local');
-    Storage::disk('local')->put('price-uploads/prices.xlsx', (string) file_get_contents(xlsxFile($sheets)));
+    Storage::disk('local')->put('price-uploads/prices.xlsx', (string) file_get_contents(xlsxFile($sheets, $merges)));
 
     return PriceUpload::factory()->create(['stored_path' => 'price-uploads/prices.xlsx']);
 }
@@ -120,8 +123,9 @@ function uploadWithSheets(array $sheets): PriceUpload
  * Pass a Cell instead of a plain value when the cell needs a style, e.g. a date format.
  *
  * @param  array<string, list<list<bool|Cell|DateTimeInterface|float|int|string|null>>>  $sheets  Sheet name => rows.
+ * @param  array<string, list<string>>  $merges  Sheet name => merged ranges, e.g. «D4:E4».
  */
-function xlsxFile(array $sheets): string
+function xlsxFile(array $sheets, array $merges = []): string
 {
     $directory = sys_get_temp_dir().'/apteka-tests-'.getmypid();
 
@@ -132,7 +136,16 @@ function xlsxFile(array $sheets): string
 
     $path = $directory.'/'.uniqid('prices-', true).'.xlsx';
 
-    $writer = new Writer;
+    $options = new Options;
+
+    foreach (array_keys($sheets) as $position => $name) {
+        foreach ($merges[$name] ?? [] as $range) {
+            preg_match('/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/', $range, $match);
+            $options->mergeCells(ExcelColumn::index($match[1]), (int) $match[2], ExcelColumn::index($match[3]), (int) $match[4], $position);
+        }
+    }
+
+    $writer = new Writer($options);
     $writer->openToFile($path);
 
     foreach (array_keys($sheets) as $position => $name) {

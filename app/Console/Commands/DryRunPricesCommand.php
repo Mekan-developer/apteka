@@ -44,7 +44,7 @@ class DryRunPricesCommand extends Command
 
         try {
             foreach ($reader->sheets($path) as $sheet) {
-                $result = $parser->parse($sheet->name, $sheet->rows);
+                $result = $parser->parse($sheet->name, $parser->visibleRows($sheet->rows, $sheet->merges));
 
                 $statusCounts[$result->status->value]++;
                 $itemCount += count($result->items);

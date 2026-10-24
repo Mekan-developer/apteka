@@ -60,7 +60,8 @@ class PriceImportService
 
         foreach ($this->reader->sheets($path) as $sheet) {
             $pharmacy = $this->pharmacies->findOrCreateByName(trim($sheet->name));
-            $result = $this->parser->parse($sheet->name, $sheet->rows, $this->savedMapping($pharmacy, $sheet->rows));
+            $rows = $this->parser->visibleRows($sheet->rows, $sheet->merges);
+            $result = $this->parser->parse($sheet->name, $rows, $this->savedMapping($pharmacy, $rows));
 
             DB::transaction(function () use ($upload, $pharmacy, $sheet, $result): void {
                 $this->sheets->create([
@@ -92,7 +93,8 @@ class PriceImportService
         $upload = $sheet->priceUpload;
         $pharmacy = $sheet->pharmacy;
 
-        $rows = $this->reader->sheet($this->path($upload), $sheet->sheet_index)->rows ?? [];
+        $sheetRows = $this->reader->sheet($this->path($upload), $sheet->sheet_index);
+        $rows = $sheetRows === null ? [] : $this->parser->visibleRows($sheetRows->rows, $sheetRows->merges);
         $result = $this->parser->parse($sheet->sheet_name, $rows, $mapping);
 
         DB::transaction(function () use ($sheet, $upload, $pharmacy, $mapping, $rows, $result): void {

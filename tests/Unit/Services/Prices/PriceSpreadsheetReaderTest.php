@@ -60,6 +60,15 @@ test('limits the preview but counts every non-empty row', function () {
         ->and($sheet->rows)->toBe([['a'], ['b']]);
 });
 
+test('keys rows by their excel row number across empty rows and gives the merged ranges', function () {
+    $path = xlsxFile(['Kamat' => [['Наименование', 'Ед. изм', '', 'Цена'], [], ['Цитрамон №6', 'уп.', '', 1.5]]], ['Kamat' => ['B1:C1']]);
+
+    $sheet = (new PriceSpreadsheetReader)->sheet($path, 0);
+
+    expect(array_keys($sheet->rows))->toBe([1, 3])
+        ->and($sheet->merges)->toBe(['B1:C1']);
+});
+
 test('reads every sheet in order when the file is reopened between sheets', function () {
     $path = xlsxFile(['Kamat' => [['a']], 'Akrap' => [['b']], 'ASDS' => [['c']]]);
 
