@@ -66,6 +66,17 @@ WORKDIR /var/www/app
 
 # ---------- dev ----------
 FROM base AS dev
+
+# Код монтируется с хоста: www-data получает UID/GID хостового пользователя,
+# чтобы php-fpm и воркер могли писать в storage/ и bootstrap/cache.
+ARG UID=1000
+ARG GID=1000
+
+RUN groupmod -o -g "${GID}" www-data \
+    && usermod -o -u "${UID}" -g "${GID}" www-data \
+    && chown www-data:www-data /var/www
+
+USER www-data
 CMD ["php-fpm"]
 
 # ---------- assets ----------
