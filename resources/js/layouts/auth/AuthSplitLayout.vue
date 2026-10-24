@@ -1,48 +1,45 @@
 <script setup lang="ts">
-import { Link, usePage } from '@inertiajs/vue3';
-import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import { usePage } from '@inertiajs/vue3';
+import MedicalCrossIcon from '@/components/MedicalCrossIcon.vue';
 import { Toaster } from '@/components/ui/sonner';
-import { home } from '@/routes';
 
-const page = usePage();
-const name = page.props.name;
-
-defineProps<{
-    title?: string;
-    description?: string;
-}>();
+const name = usePage().props.name;
 </script>
 
 <template>
-    <div
-        class="relative grid h-dvh flex-col items-center justify-center px-8 sm:px-0 lg:max-w-none lg:grid-cols-2 lg:px-0"
-    >
-        <div
-            class="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r"
-        >
-            <div class="absolute inset-0 bg-zinc-900" />
-            <Link
-                :href="home()"
-                class="relative z-20 flex items-center text-lg font-medium"
+    <div>
+        <div class="grid min-h-svh md:grid-cols-[1fr_2fr]">
+            <aside
+                class="relative hidden flex-col justify-between overflow-hidden bg-linear-to-br from-emerald-700 to-emerald-900 p-8 text-white md:flex lg:p-12"
             >
-                <AppLogoIcon class="mr-2 size-8 fill-current text-white" />
-                {{ name }}
-            </Link>
-        </div>
-        <div class="lg:p-8">
-            <div
-                class="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]"
+                <MedicalCrossIcon class="size-20 lg:size-28" />
+                <p class="text-5xl font-semibold tracking-tight lg:text-7xl">
+                    {{ name }}
+                </p>
+                <div aria-hidden="true" />
+            </aside>
+
+            <main
+                class="dark flex items-center justify-center bg-slate-950 bg-[radial-gradient(rgb(255_255_255/0.08)_1px,transparent_1px)] bg-[length:22px_22px] px-4 py-10 text-foreground"
             >
-                <div class="flex flex-col space-y-2 text-center">
-                    <h1 class="text-xl font-medium tracking-tight" v-if="title">
-                        {{ title }}
-                    </h1>
-                    <p class="text-sm text-muted-foreground" v-if="description">
-                        {{ description }}
-                    </p>
+                <div
+                    class="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-black/40 backdrop-blur sm:p-7"
+                >
+                    <div class="mb-6 flex items-center justify-center gap-3">
+                        <div
+                            class="flex size-12 items-center justify-center rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+                        >
+                            <MedicalCrossIcon class="size-7" />
+                        </div>
+                        <span
+                            class="text-3xl font-semibold tracking-tight text-emerald-100"
+                        >
+                            {{ name }}
+                        </span>
+                    </div>
+                    <slot />
                 </div>
-                <slot />
-            </div>
+            </main>
         </div>
         <Toaster />
     </div>
