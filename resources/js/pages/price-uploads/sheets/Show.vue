@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { Form, Head, setLayoutProps, usePoll } from '@inertiajs/vue3';
+import { ChevronDown, Info } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import PriceUploadSheetController from '@/actions/App/Http/Controllers/PriceUploadSheetController';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import PriceUploadSheetStatusBadge from '@/components/PriceUploadSheetStatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Label } from '@/components/ui/label';
 import { useTrans } from '@/composables/useTrans';
 import { columnName } from '@/lib/excel';
@@ -26,6 +32,14 @@ const props = defineProps<{
 }>();
 
 const { t } = useTrans();
+
+const helpPoints = [
+    'price_uploads.sheet.help.ok',
+    'price_uploads.sheet.help.fix',
+    'price_uploads.sheet.help.remember',
+    'price_uploads.sheet.help.effective_price',
+    'price_uploads.sheet.help.search',
+];
 
 setLayoutProps({
     breadcrumbs: [
@@ -123,6 +137,41 @@ const selectClass =
             />
             <PriceUploadSheetStatusBadge :status="sheet.status" />
         </div>
+
+        <Collapsible
+            :default-open="true"
+            class="rounded-xl border border-sky-500/30 bg-sky-500/5"
+            v-slot="{ open }"
+        >
+            <CollapsibleTrigger
+                class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium"
+            >
+                <Info class="size-4 shrink-0 text-sky-600 dark:text-sky-400" />
+                <span class="flex-1">{{
+                    t('price_uploads.sheet.help.title')
+                }}</span>
+                <ChevronDown
+                    class="size-4 shrink-0 text-muted-foreground transition-transform"
+                    :class="{ 'rotate-180': open }"
+                />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+                <div class="space-y-2 px-4 pb-4 text-sm text-muted-foreground">
+                    <p>
+                        {{
+                            t('price_uploads.sheet.help.intro', {
+                                name: sheet.sheet_name,
+                            })
+                        }}
+                    </p>
+                    <ul class="list-disc space-y-1 pl-5">
+                        <li v-for="point in helpPoints" :key="point">
+                            {{ t(point) }}
+                        </li>
+                    </ul>
+                </div>
+            </CollapsibleContent>
+        </Collapsible>
 
         <p v-if="isReparsing" class="text-sm text-muted-foreground">
             {{ t('price_uploads.sheet.reparsing') }}
