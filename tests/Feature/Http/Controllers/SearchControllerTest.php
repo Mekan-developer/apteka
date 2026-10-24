@@ -147,6 +147,34 @@ test('the active ingredient finds the drug under another brand name', function (
         ->assertInertia(fn (Assert $page) => $page->where('groups.0.offers.0.raw_name', 'ACTION PLUS (ЦИТРАМОН) №4'));
 });
 
+test('a drug name typed in Latin letters finds the drug written in Cyrillic', function (string $query) {
+    $upload = PriceUpload::factory()->active()->create();
+    offer($upload, 'ASDS', 'Анальгин таб 500мг №10 Беларусь', 3.1);
+
+    $this->get(route('home', ['q' => $query]))
+        ->assertInertia(fn (Assert $page) => $page->where('groups.0.offers.0.raw_name', 'Анальгин таб 500мг №10 Беларусь'));
+})->with(['analgin', 'Analgin tab №10', 'anolgin']);
+
+test('a brand stored in Latin letters is still found by its Latin name', function () {
+    $upload = PriceUpload::factory()->active()->create();
+    offer($upload, 'Abray Umyt', 'ACTION PLUS (ЦИТРАМОН) №4', 1.1);
+
+    $this->get(route('home', ['q' => 'action plus']))
+        ->assertInertia(fn (Assert $page) => $page->where('groups.0.offers.0.raw_name', 'ACTION PLUS (ЦИТРАМОН) №4'));
+});
+
+test('a Latin query that finds nothing suggests the Cyrillic product names', function () {
+    config(['prices.search.similarity_threshold' => 0.95]);
+    $upload = PriceUpload::factory()->active()->create();
+    offer($upload, 'Kamat', 'Аспирин таб 500мг №10', 5);
+
+    $this->get(route('home', ['q' => 'aspirn']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('groups', [])
+            ->where('suggestions', ['аспирин'])
+        );
+});
+
 test('a synonym finds the drug under its other name, in both directions', function () {
     $upload = PriceUpload::factory()->active()->create();
     offer($upload, 'Naz ada', 'Ацетилсалициловая кислота таб 500мг №10', 1.6);

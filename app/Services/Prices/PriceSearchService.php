@@ -9,6 +9,7 @@ use App\Repositories\DiscountRuleRepository;
 use App\Repositories\DrugSynonymRepository;
 use App\Repositories\PriceItemRepository;
 use App\Repositories\PriceUploadRepository;
+use App\Services\Prices\Parsing\LatinTransliterator;
 use App\Services\Prices\Parsing\NameNormalizer;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -28,6 +29,7 @@ class PriceSearchService
         private readonly PriceItemRepository $items,
         private readonly DiscountRuleRepository $discountRules,
         private readonly DrugSynonymRepository $synonyms,
+        private readonly LatinTransliterator $transliterator,
     ) {}
 
     public function activeUpload(): ?PriceUpload
@@ -100,14 +102,21 @@ class PriceSearchService
      */
     private function cheapestOffersIn(PriceUpload $upload, string $query, int $perPack): Collection
     {
-        $name = $this->normalizer->normalize($query);
-        $term = $this->term($query);
+        $terms = [];
+
+        foreach ($this->spellings($query) as $spelling) {
+            $term = $this->term($spelling);
+            array_push($terms, $term, ...$this->synonyms->namesRelatedTo($term));
+        }
 
         return $this->items->cheapestOffers(
             upload: $upload,
-            terms: [$term, ...$this->synonyms->namesRelatedTo($term)],
-            skeleton: $name->skeleton,
-            packCount: $name->packCount,
+            terms: array_values(array_unique($terms)),
+            skeletons: array_values(array_unique(array_map(
+                fn (string $spelling): string => $this->normalizer->normalize($spelling)->skeleton,
+                $this->spellings($query),
+            ))),
+            packCount: $this->normalizer->normalize($query)->packCount,
             threshold: (float) config('prices.search.similarity_threshold'),
             relativeGap: (float) config('prices.search.relative_gap'),
             skeletonScore: (float) config('prices.search.skeleton_score'),
@@ -124,14 +133,36 @@ class PriceSearchService
     {
         $upload = $this->activeUpload();
 
-        return $upload === null
-            ? []
-            : $this->items->closestBaseNames(
+        if ($upload === null) {
+            return [];
+        }
+
+        $limit = (int) config('prices.search.suggestions');
+        $names = [];
+
+        foreach ($this->spellings($query) as $spelling) {
+            array_push($names, ...$this->items->closestBaseNames(
                 $upload,
-                $this->term($query),
+                $this->term($spelling),
                 (float) config('prices.search.suggestion_threshold'),
-                (int) config('prices.search.suggestions'),
-            );
+                $limit,
+            ));
+        }
+
+        return array_slice(array_values(array_unique($names)), 0, $limit);
+    }
+
+    /**
+     * The query as typed and, when it has Latin words, spelled in Cyrillic: «analgin» also searches «аналгин»,
+     * while a brand stored in Latin («ACTION PLUS») is still found by its own spelling.
+     *
+     * @return non-empty-list<string>
+     */
+    private function spellings(string $query): array
+    {
+        $cyrillic = $this->transliterator->toCyrillic($query);
+
+        return $cyrillic === null ? [$query] : [$query, $cyrillic];
     }
 
     /**

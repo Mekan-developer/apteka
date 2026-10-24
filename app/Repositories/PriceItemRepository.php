@@ -60,12 +60,13 @@ class PriceItemRepository
      * the drug itself once the drug is found.
      *
      * @param  non-empty-list<string>  $terms  The searched name first, then its synonyms; each counts as a full match.
+     * @param  list<string>  $skeletons  The consonants of every spelling of the searched name.
      * @return Collection<int, PriceItem>
      */
     public function cheapestOffers(
         PriceUpload $upload,
         array $terms,
-        string $skeleton,
+        array $skeletons,
         ?int $packCount,
         float $threshold,
         float $relativeGap,
@@ -93,7 +94,11 @@ class PriceItemRepository
             array_push($matchBindings, $term, $term, $compactTerm);
         }
 
-        if (mb_strlen($skeleton) >= 3) {
+        foreach ($skeletons as $skeleton) {
+            if (mb_strlen($skeleton) < 3) {
+                continue;
+            }
+
             // The skeleton holds only consonant letters, so it never contains LIKE wildcards.
             $scoreSql[] = 'case when pi.name_skeleton like ? then ?::real else 0 end';
             array_push($scoreBindings, $skeleton.'%', $skeletonScore);
