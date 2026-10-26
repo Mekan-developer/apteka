@@ -19,7 +19,8 @@ class PharmacyFactory extends Factory
     {
         return [
             'name' => fake()->unique()->company(),
-            'phone' => fake()->optional()->numerify('+993 6# ##-##-##'),
+            'phones' => fake()->boolean() ? [fake()->numerify('+99365######')] : null,
+            'address' => fake()->boolean() ? 'г. Ашгабат, ул. '.fake()->streetName().', дом '.fake()->buildingNumber() : null,
         ];
     }
 }

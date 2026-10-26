@@ -75,6 +75,7 @@ function offer(PriceUpload $upload, string $pharmacy, string $name, float $price
             'active_ingredient' => $normalized->activeIngredient,
             'pack_count' => $normalized->packCount,
             'dose' => $normalized->dose,
+            'dosage_form' => $normalized->dosageForm,
             'price' => $price,
             'price_discounted' => null,
             'effective_price' => $price,

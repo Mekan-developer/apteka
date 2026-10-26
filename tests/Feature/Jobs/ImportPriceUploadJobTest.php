@@ -160,3 +160,32 @@ test('a sheet that merges cells in part of its table is imported with every prod
         ->and(PriceItem::query()->orderBy('source_row')->get(['source_row', 'price'])->map(fn (PriceItem $item): array => [$item->source_row, $item->price])->all())
         ->toBe([[2, '18.50'], [3, '25.00'], [5, '1.60'], [6, '4.00']]);
 });
+
+test('the phones and the address above a table are saved for the pharmacy', function () {
+    ImportPriceUploadJob::dispatchSync(uploadWithSheets([
+        'Altyn Dag' => [
+            ['НАШ адрес : ул. Огузхан, дом 106 "В"'],
+            ['тел: 22-98-30; 22-98-35; fax:22-85-40'],
+            ['№', 'Наименование', 'Цена'],
+            [1, 'Цитрамон таб №6', 1.5],
+        ],
+    ]));
+
+    $pharmacy = Pharmacy::query()->where('name', 'Altyn Dag')->sole();
+
+    expect($pharmacy->phones)->toBe(['+99312229830', '+99312229835', '+99312228540'])
+        ->and($pharmacy->address)->toBe('ул. Огузхан, дом 106 "В"');
+});
+
+test('a sheet without contacts keeps the contacts known from earlier sheets', function () {
+    Pharmacy::factory()->create(['name' => 'Kamat', 'phones' => ['+99364320482'], 'address' => 'ул. Огузхан, дом 1']);
+
+    ImportPriceUploadJob::dispatchSync(uploadWithSheets([
+        'Kamat' => [['Наименование', 'Цена'], ['Цитрамон таб №6', 1.5]],
+    ]));
+
+    $pharmacy = Pharmacy::query()->where('name', 'Kamat')->sole();
+
+    expect($pharmacy->phones)->toBe(['+99364320482'])
+        ->and($pharmacy->address)->toBe('ул. Огузхан, дом 1');
+});

@@ -25,6 +25,19 @@ class PriceUploadRepository
     }
 
     /**
+     * Uploads that hold products, oldest first.
+     *
+     * @return Collection<int, PriceUpload>
+     */
+    public function withProducts(): Collection
+    {
+        return PriceUpload::query()
+            ->whereIn('status', [PriceUploadStatus::NeedsReview, PriceUploadStatus::Active, PriceUploadStatus::Archived])
+            ->oldest('id')
+            ->get();
+    }
+
+    /**
      * The upload search uses; the database allows only one.
      */
     public function findActive(): ?PriceUpload

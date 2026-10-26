@@ -23,9 +23,14 @@ class SearchOfferResource extends JsonResource
         return [
             'id' => $this->id,
             'place' => (int) $this->resource->getAttribute('place'),
+            'price_difference' => $this->resource->getAttribute('price_difference'),
             'pharmacy' => $this->whenLoaded('pharmacy', fn (): array => [
                 'name' => $this->pharmacy->name,
-                'phone' => $this->pharmacy->phone,
+                'phones' => array_map(fn (string $dial): array => [
+                    'display' => $this->formatPhone($dial),
+                    'dial' => $dial,
+                ], $this->pharmacy->phones ?? []),
+                'address' => $this->pharmacy->address,
             ]),
             'raw_name' => $this->raw_name,
             'dose' => $this->dose,
@@ -40,5 +45,17 @@ class SearchOfferResource extends JsonResource
                 fn (): array => DiscountRuleResource::collection($this->resource->getRelation('sheetDiscounts'))->resolve($request),
             ),
         ];
+    }
+
+    /**
+     * «+99365635639» → «+993 65 63 56 39»: one way of writing every number, however the sheet wrote it.
+     */
+    private function formatPhone(string $dial): string
+    {
+        if (preg_match('/^\+993(\d{2})(\d{2})(\d{2})(\d{2})$/', $dial, $parts) !== 1) {
+            return $dial;
+        }
+
+        return "+993 {$parts[1]} {$parts[2]} {$parts[3]} {$parts[4]}";
     }
 }

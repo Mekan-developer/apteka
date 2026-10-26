@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DosageForm;
 use Database\Factories\PriceItemFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
@@ -26,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $active_ingredient
  * @property int|null $pack_count
  * @property string|null $dose
+ * @property DosageForm|null $dosage_form
  * @property string $price
  * @property string|null $price_discounted
  * @property string $effective_price
@@ -45,6 +47,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'active_ingredient',
     'pack_count',
     'dose',
+    'dosage_form',
     'price',
     'price_discounted',
     'effective_price',
@@ -71,6 +74,7 @@ class PriceItem extends Model
             'price_discounted' => 'decimal:2',
             'effective_price' => 'decimal:2',
             'goods_discount_percent' => 'decimal:2',
+            'dosage_form' => DosageForm::class,
         ];
     }
 

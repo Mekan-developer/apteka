@@ -67,4 +67,33 @@ return [
         'conditional' => ':discount (şertli)',
     ],
 
+    'refresh' => [
+        'queued' => 'Täzelemek üçin nobata goýlan ýüklemeler: :count.',
+    ],
+
+    'dosage_forms' => [
+        'tablets' => 'tabletkalar',
+        'capsules' => 'kapsulalar',
+        'syrup' => 'sirop',
+        'suspension' => 'suspenziýa',
+        'injection' => 'sanjymlar',
+        'drops' => 'damjalar',
+        'spray' => 'sprey',
+        'suppositories' => 'şemler',
+        'ointment' => 'melhem, gel, krem',
+        'powder' => 'poroşok',
+        'solution' => 'ergin',
+    ],
+
+    // Import edýän wagtymyz kadalaşdyrylan doza birlikleri («мг», «мл», …) we olaryň ulanyja görkezilişi.
+    'units' => [
+        'мкг' => 'mkg',
+        'мг' => 'mg',
+        'мл' => 'ml',
+        'г' => 'g',
+        'ме' => 'HB',
+        'ед' => 'birlik',
+        '%' => '%',
+    ],
+
 ];

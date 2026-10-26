@@ -3,7 +3,9 @@
 namespace App\Services\Prices;
 
 use App\Enums\PriceUploadSheetStatus;
+use App\Enums\PriceUploadStatus;
 use App\Models\Pharmacy;
+use App\Models\PriceItem;
 use App\Models\PriceUpload;
 use App\Models\PriceUploadSheet;
 use App\Repositories\DiscountRuleRepository;
@@ -14,12 +16,14 @@ use App\Repositories\PriceUploadRepository;
 use App\Repositories\PriceUploadSheetRepository;
 use App\Services\Prices\Parsing\ColumnMapping;
 use App\Services\Prices\Parsing\HeaderSignature;
+use App\Services\Prices\Parsing\NormalizedName;
 use App\Services\Prices\Parsing\ParsedItem;
 use App\Services\Prices\Parsing\SheetDiscount;
 use App\Services\Prices\Parsing\SheetParser;
 use App\Services\Prices\Parsing\SheetParseResult;
 use DateInterval;
 use DateTimeInterface;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -73,6 +77,7 @@ class PriceImportService
                 ]);
 
                 $this->storeProducts($upload, $pharmacy, $result);
+                $this->pharmacies->updateContacts($pharmacy, $result->contacts);
             });
 
             $sheetsOk += $result->status === PriceUploadSheetStatus::Parsed ? 1 : 0;
@@ -102,6 +107,7 @@ class PriceImportService
             $this->discountRules->deleteForSheet($sheet);
             $this->sheets->update($sheet, $this->sheetAttributes($result));
             $this->storeProducts($upload, $pharmacy, $result);
+            $this->pharmacies->updateContacts($pharmacy, $result->contacts);
 
             if ($result->status === PriceUploadSheetStatus::Parsed && $mapping->headerRow !== null) {
                 $this->mappings->saveForPharmacy($pharmacy, [
@@ -116,6 +122,34 @@ class PriceImportService
             $totals = $this->sheets->totalsForUpload($upload);
             $this->uploads->updateTotals($upload, $totals['sheetsOk'], $totals['rowsTotal']);
         });
+    }
+
+    /**
+     * Bring an upload imported by an earlier version up to date without importing it again: its products get
+     * the name fields search uses now (such as the dosage form) and, for the active upload, the pharmacies get
+     * the contacts written in their sheets. Running it again gives the same result.
+     */
+    public function refresh(PriceUpload $upload): void
+    {
+        $this->items->chunkNamesForUpload($upload, 1000, function (Collection $items): void {
+            $this->items->updateNames(array_map(fn (PriceItem $item): array => [
+                'id' => $item->id,
+                ...$this->nameAttributes($this->parser->normalizeProductName($item->raw_name)),
+            ], array_values($items->all())));
+        });
+
+        $path = $this->path($upload);
+
+        if ($upload->status === PriceUploadStatus::Active && is_file($path)) {
+            foreach ($this->reader->sheets($path) as $sheet) {
+                $pharmacy = $this->pharmacies->findOrCreateByName(trim($sheet->name));
+                $rows = $this->parser->visibleRows($sheet->rows, $sheet->merges);
+
+                $this->pharmacies->updateContacts($pharmacy, $this->parser->parse($sheet->name, $rows, $this->savedMapping($pharmacy, $rows))->contacts);
+            }
+        }
+
+        $this->items->refreshStatistics();
     }
 
     public function markFailed(PriceUpload $upload): void
@@ -174,19 +208,32 @@ class PriceImportService
         ];
     }
 
+    /**
+     * The columns search reads, derived from the product name.
+     *
+     * @return array{name_normalized: string, name_skeleton: string, base_name: string, name_compact: string, active_ingredient: string|null, pack_count: int|null, dose: string|null, dosage_form: string|null}
+     */
+    private function nameAttributes(NormalizedName $name): array
+    {
+        return [
+            'name_normalized' => $name->normalized,
+            'name_skeleton' => mb_substr($name->skeleton, 0, 255),
+            'base_name' => $name->baseName,
+            'name_compact' => str_replace(' ', '', $name->baseName),
+            'active_ingredient' => $name->activeIngredient,
+            'pack_count' => $name->packCount,
+            'dose' => $name->dose === null ? null : mb_substr($name->dose, 0, 255),
+            'dosage_form' => $name->dosageForm?->value,
+        ];
+    }
+
     private function storeProducts(PriceUpload $upload, Pharmacy $pharmacy, SheetParseResult $result): void
     {
         $this->items->insertMany(array_map(fn (ParsedItem $item): array => [
             'price_upload_id' => $upload->id,
             'pharmacy_id' => $pharmacy->id,
             'raw_name' => $item->rawName,
-            'name_normalized' => $item->name->normalized,
-            'name_skeleton' => mb_substr($item->name->skeleton, 0, 255),
-            'base_name' => $item->name->baseName,
-            'name_compact' => str_replace(' ', '', $item->name->baseName),
-            'active_ingredient' => $item->name->activeIngredient,
-            'pack_count' => $item->name->packCount,
-            'dose' => $item->name->dose === null ? null : mb_substr($item->name->dose, 0, 255),
+            ...$this->nameAttributes($item->name),
             'price' => $item->price,
             'price_discounted' => $item->priceDiscounted,
             'effective_price' => $item->effectivePrice,

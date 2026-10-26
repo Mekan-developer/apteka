@@ -2,6 +2,8 @@
 
 namespace App\Services\Prices\Parsing;
 
+use App\Enums\DosageForm;
+
 /**
  * A product name prepared for search: the same normalization runs on import and on the search query.
  */
@@ -14,6 +16,7 @@ final readonly class NormalizedName
      * @param  string|null  $activeIngredient  Words from the first parentheses, e.g. «парацетамол».
      * @param  int|null  $packCount  N from «№N»: prices are only comparable within one pack size.
      * @param  string|null  $dose  Every dose in the name, e.g. «20% 50мл».
+     * @param  DosageForm|null  $dosageForm  Tablets, syrup, …: prices are only comparable within one form.
      */
     public function __construct(
         public string $normalized,
@@ -22,5 +25,6 @@ final readonly class NormalizedName
         public ?string $activeIngredient,
         public ?int $packCount,
         public ?string $dose,
+        public ?DosageForm $dosageForm = null,
     ) {}
 }

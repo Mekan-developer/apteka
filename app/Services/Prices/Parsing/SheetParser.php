@@ -28,6 +28,7 @@ final class SheetParser
         private readonly NameNormalizer $names = new NameNormalizer,
         private readonly DiscountExtractor $discounts = new DiscountExtractor,
         private readonly EffectivePriceCalculator $effectivePrices = new EffectivePriceCalculator,
+        private readonly ContactExtractor $contacts = new ContactExtractor,
     ) {}
 
     /**
@@ -122,15 +123,29 @@ final class SheetParser
             manufacturer: $draft['manufacturer'],
         ), array_values($drafts));
 
+        $contacts = $this->contacts->extract(array_filter(
+            $rows,
+            fn (int $rowNumber): bool => $rowNumber <= $mapping->lastHeaderRow,
+            ARRAY_FILTER_USE_KEY,
+        ));
+
         if ($items === []) {
-            return $this->needsReview($sheetName, $mapping, ReviewReason::NoProducts, $preview, $sheetDiscounts);
+            return $this->needsReview($sheetName, $mapping, ReviewReason::NoProducts, $preview, $sheetDiscounts, $contacts);
         }
 
         if (count($items) / (count($items) + $unpricedRows) < self::MIN_PRICED_SHARE) {
-            return $this->needsReview($sheetName, $mapping, ReviewReason::FewPrices, $preview, $sheetDiscounts);
+            return $this->needsReview($sheetName, $mapping, ReviewReason::FewPrices, $preview, $sheetDiscounts, $contacts);
         }
 
-        return new SheetParseResult($sheetName, PriceUploadSheetStatus::Parsed, $mapping, $items, $sheetDiscounts, null, $preview);
+        return new SheetParseResult($sheetName, PriceUploadSheetStatus::Parsed, $mapping, $items, $sheetDiscounts, null, $preview, $contacts);
+    }
+
+    /**
+     * A stored product name normalized exactly as on import: without its goods discount note («… (+ товар.скидка)»).
+     */
+    public function normalizeProductName(string $rawName): NormalizedName
+    {
+        return $this->names->normalize($this->discounts->fromProductName($rawName)[0]);
     }
 
     /**
@@ -236,9 +251,15 @@ final class SheetParser
      * @param  list<array{row: int, cells: list<bool|float|int|string|null>}>  $preview
      * @param  list<SheetDiscount>  $discounts
      */
-    private function needsReview(string $sheetName, ?ColumnMapping $mapping, ReviewReason $reason, array $preview, array $discounts = []): SheetParseResult
-    {
-        return new SheetParseResult($sheetName, PriceUploadSheetStatus::NeedsReview, $mapping, [], $discounts, $reason, $preview);
+    private function needsReview(
+        string $sheetName,
+        ?ColumnMapping $mapping,
+        ReviewReason $reason,
+        array $preview,
+        array $discounts = [],
+        PharmacyContacts $contacts = new PharmacyContacts,
+    ): SheetParseResult {
+        return new SheetParseResult($sheetName, PriceUploadSheetStatus::NeedsReview, $mapping, [], $discounts, $reason, $preview, $contacts);
     }
 
     /**

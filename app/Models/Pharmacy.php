@@ -15,15 +15,28 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property string $name
- * @property string|null $phone
+ * @property list<string>|null $phones Numbers to dial, read from the price sheet, e.g. «+99312209785».
+ * @property string|null $address
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'phone'])]
+#[Fillable(['name', 'phones', 'address'])]
 class Pharmacy extends Model
 {
     /** @use HasFactory<PharmacyFactory> */
     use HasFactory;
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'phones' => 'array',
+        ];
+    }
 
     /**
      * @return HasOne<PharmacySheetMapping, $this>

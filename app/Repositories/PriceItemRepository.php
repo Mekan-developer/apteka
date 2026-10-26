@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\PriceItem;
 use App\Models\PriceUpload;
 use App\Models\PriceUploadSheet;
+use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +22,41 @@ class PriceItemRepository
     {
         foreach (array_chunk($rows, self::INSERT_CHUNK) as $chunk) {
             PriceItem::query()->insert($chunk);
+        }
+    }
+
+    /**
+     * The upload's products in chunks, with just what normalization needs.
+     *
+     * @param  Closure(Collection<int, PriceItem>): void  $callback
+     */
+    public function chunkNamesForUpload(PriceUpload $upload, int $size, Closure $callback): void
+    {
+        PriceItem::query()->whereBelongsTo($upload)->select(['id', 'raw_name'])->chunkById($size, $callback);
+    }
+
+    /**
+     * Rewrite the fields search derives from the product name, one statement per chunk.
+     *
+     * @param  list<array{id: int, name_normalized: string, name_skeleton: string, base_name: string, name_compact: string, active_ingredient: string|null, pack_count: int|null, dose: string|null, dosage_form: string|null}>  $rows
+     */
+    public function updateNames(array $rows): void
+    {
+        foreach (array_chunk($rows, self::INSERT_CHUNK) as $chunk) {
+            $values = implode(', ', array_fill(0, count($chunk), '(?::bigint, ?::text, ?::varchar, ?::text, ?::text, ?::text, ?::integer, ?::varchar, ?::varchar)'));
+            $bindings = array_merge(...array_map(fn (array $row): array => [
+                $row['id'], $row['name_normalized'], $row['name_skeleton'], $row['base_name'], $row['name_compact'],
+                $row['active_ingredient'], $row['pack_count'], $row['dose'], $row['dosage_form'],
+            ], $chunk));
+
+            DB::update(<<<SQL
+                update price_items as pi set
+                    name_normalized = v.name_normalized, name_skeleton = v.name_skeleton, base_name = v.base_name,
+                    name_compact = v.name_compact, active_ingredient = v.active_ingredient, pack_count = v.pack_count,
+                    dose = v.dose, dosage_form = v.dosage_form
+                from (values {$values}) as v(id, name_normalized, name_skeleton, base_name, name_compact, active_ingredient, pack_count, dose, dosage_form)
+                where pi.id = v.id
+                SQL, $bindings);
         }
     }
 

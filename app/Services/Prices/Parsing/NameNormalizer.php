@@ -2,6 +2,8 @@
 
 namespace App\Services\Prices\Parsing;
 
+use App\Enums\DosageForm;
+
 /**
  * Prepares a product name for search. The same normalization runs on import and on the search query,
  * so «Цитрамон-Боримед таб №6» and «ЦИТРАМОН - Боримед таблетки 200мг №6 Беларусь» meet in one base name.
@@ -24,6 +26,24 @@ final class NameNormalizer
     private const string DOSE = '/(\d+(?:[.,]\d+)?)\s*(мкг|мг|мл|гр|г|ме|ед|mcg|mg|ml|g|%)(?!\p{L})/u';
 
     private const string PACK = '/(?:№|#|(?<!\p{L})n)\s*(\d+)/u';
+
+    /**
+     * Words naming the dosage form, checked in this order: the first form found wins, so «порошок д/приг суспензии»
+     * is a suspension and «р-р д/ин» an injection, not a solution. Soft and hard signs are already gone («мазь» → «маз»).
+     */
+    private const array DOSAGE_FORMS = [
+        'injection' => 'амп(?:ул\p{L}*)?|инек\p{L}*|инфуз\p{L}*|инф|д/ин\p{L}*|в/в|в/м|шприц\p{L}*',
+        'suspension' => 'сусп\p{L}*',
+        'syrup' => 'сироп\p{L}*',
+        'drops' => 'капл\p{L}*|капел\p{L}*|кап',
+        'spray' => 'спрей\p{L}*|аэроз\p{L}*',
+        'suppositories' => 'супп\p{L}*|свеч\p{L}*',
+        'ointment' => 'маз\p{L}*|гел|геля|эмулгел\p{L}*|крем|крема|балзам\p{L}*|линимент\p{L}*',
+        'capsules' => 'капс\p{L}*',
+        'tablets' => 'таб\p{L}*|драже',
+        'powder' => 'пор|порош\p{L}*|саше|гранул\p{L}*',
+        'solution' => 'р-р\p{L}*|раств\p{L}*',
+    ];
 
     /**
      * Words that describe the dosage form, the package, the country or are plain prepositions:
@@ -68,7 +88,19 @@ final class NameNormalizer
             activeIngredient: $this->activeIngredient($text),
             packCount: preg_match(self::PACK, $text, $matches) === 1 ? (int) $matches[1] : null,
             dose: $this->dose($text),
+            dosageForm: $this->dosageForm($text),
         );
+    }
+
+    private function dosageForm(string $text): ?DosageForm
+    {
+        foreach (self::DOSAGE_FORMS as $form => $words) {
+            if (preg_match('~(?<!\p{L})(?:'.$words.')(?!\p{L})~u', $text) === 1) {
+                return DosageForm::from($form);
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -137,16 +169,33 @@ final class NameNormalizer
         return null;
     }
 
+    /**
+     * Every dose in one spelling, so equal doses meet: «2,0 мл» → «2мл», and the strength comes before
+     * the volume — «2мл 500мг» → «500мг 2мл», while «200мг/5мл 20мл» keeps its order.
+     */
     private function dose(string $text): ?string
     {
         preg_match_all(self::DOSE, $text, $matches, PREG_SET_ORDER);
 
         $doses = array_values(array_unique(array_map(
-            fn (array $match): string => str_replace(',', '.', $match[1]).self::UNITS[$match[2]],
+            fn (array $match): string => $this->number($match[1]).self::UNITS[$match[2]],
             $matches,
         )));
 
+        // usort is stable: doses of the same kind keep their order in the name.
+        usort($doses, fn (string $a, string $b): int => (int) str_ends_with($a, 'мл') <=> (int) str_ends_with($b, 'мл'));
+
         return $doses === [] ? null : implode(' ', $doses);
+    }
+
+    /**
+     * «2,50» → «2.5», «2.0» → «2».
+     */
+    private function number(string $number): string
+    {
+        $number = str_replace(',', '.', $number);
+
+        return str_contains($number, '.') ? rtrim(rtrim($number, '0'), '.') : $number;
     }
 
     /**

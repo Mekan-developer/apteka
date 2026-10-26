@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\DosageForm;
 use App\Models\Pharmacy;
 use App\Models\PriceItem;
 use App\Models\PriceUpload;
@@ -36,6 +37,7 @@ class PriceItemFactory extends Factory
             'active_ingredient' => null,
             'pack_count' => $packCount,
             'dose' => $dose,
+            'dosage_form' => DosageForm::Tablets,
             'price' => $price,
             'price_discounted' => null,
             'effective_price' => $price,
