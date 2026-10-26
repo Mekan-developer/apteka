@@ -13,6 +13,7 @@
 /resources/js/wayfinder
 /vendor
 .DS_Store
+*:Zone.Identifier
 .env
 .env.backup
 .env.production
