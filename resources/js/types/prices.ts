@@ -71,10 +71,23 @@ export type PriceUpload = {
     sheets?: PriceUploadSheet[];
 };
 
+export type PharmacyPhone = {
+    /** One format for every number: «+993 65 63 56 39». */
+    display: string;
+    /** For tel: links: «+99365635639». */
+    dial: string;
+};
+
 export type SearchOffer = {
     id: number;
     place: number;
-    pharmacy?: { name: string; phone: string | null };
+    /** How much dearer than the first place, e.g. "0.25"; null outside the search groups. */
+    price_difference: string | null;
+    pharmacy?: {
+        name: string;
+        phones: PharmacyPhone[];
+        address: string | null;
+    };
     raw_name: string;
     dose: string | null;
     manufacturer: string | null;
@@ -86,9 +99,53 @@ export type SearchOffer = {
     sheet_discounts?: DiscountRule[];
 };
 
+export type DosageForm =
+    | 'tablets'
+    | 'capsules'
+    | 'syrup'
+    | 'suspension'
+    | 'injection'
+    | 'drops'
+    | 'spray'
+    | 'suppositories'
+    | 'ointment'
+    | 'powder'
+    | 'solution';
+
+/** One variant of the drug: prices are only compared within one form, dose and pack size. */
 export type SearchGroup = {
+    key: string;
+    drug_name: string;
+    dosage_form: DosageForm | null;
+    dosage_form_label: string | null;
+    dose: string | null;
+    dose_label: string | null;
     pack_count: number | null;
+    pharmacies_count: number;
     offers: SearchOffer[];
+};
+
+export type SearchResult = {
+    groups: SearchGroup[];
+    summary: {
+        variants_count: number;
+        pharmacies_count: number;
+        lowest_price: string | null;
+    } | null;
+    /** The drug shown when the query was most likely misspelt. */
+    corrected_to: string | null;
+};
+
+/** The variants a visitor chose to see; null shows every value. */
+export type GroupFilter = {
+    form: DosageForm | null;
+    dose: string | null;
+    pack: number | null;
+};
+
+export type DrugSuggestion = {
+    name: string;
+    pharmacies_count: number;
 };
 
 export type PriceHistoryRow = {
