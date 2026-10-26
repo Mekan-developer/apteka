@@ -3,7 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Prices\SearchPricesRequest;
-use App\Http\Resources\PriceSearchGroupResource;
+use App\Http\Resources\PriceSearchResultResource;
+use App\Services\Prices\PriceSearchResult;
 use App\Services\Prices\PriceSearchService;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -16,13 +17,17 @@ class SearchController extends Controller
     public function __invoke(SearchPricesRequest $request, PriceSearchService $search): Response
     {
         $query = $request->searchQuery();
-        $groups = $query === '' ? [] : $search->search($query);
+        $result = $query === '' ? PriceSearchResult::empty() : $search->search($query);
 
         return Inertia::render('Search', [
             'query' => $query,
+            'minQueryLength' => (int) config('prices.search.min_query_length'),
             'pricesDate' => $search->activeUpload()?->activated_at?->toIso8601String(),
-            'groups' => PriceSearchGroupResource::collection($groups)->resolve(),
-            'suggestions' => $query !== '' && $groups === [] ? $search->suggestions($query) : [],
+            'pricesStale' => $search->pricesAreStale(),
+            'pharmaciesCount' => $search->pharmaciesCount(),
+            'popularQueries' => config('prices.search.popular'),
+            'result' => (new PriceSearchResultResource($result))->resolve(),
+            'suggestions' => $query !== '' && $result->groups === [] ? $search->suggestions($query) : [],
         ]);
     }
 }

@@ -32,6 +32,12 @@ return [
     | query's consonants, which catches typos in vowels («анолгин»).
     | suggestion_threshold: how close a name must be to be suggested when
     | the search finds nothing.
+    | min_query_length: shorter queries match nearly every product.
+    | autocomplete: how many names the search box suggests while typing.
+    | corrected_below: when the best match scores below this, the query
+    | was most likely misspelt and the page says which name it showed.
+    | popular: queries offered on the empty search page.
+    | stale_after_days: older prices get a warning on the search page.
     |
     */
 
@@ -42,6 +48,11 @@ return [
         'offers_per_pack' => 3,
         'suggestions' => 5,
         'suggestion_threshold' => 0.3,
+        'min_query_length' => 2,
+        'autocomplete' => 8,
+        'corrected_below' => 0.75,
+        'popular' => ['цитрамон', 'парацетамол', 'азитромицин', 'но-шпа', 'аналгин', 'амоксициллин', 'ибупрофен', 'омепразол'],
+        'stale_after_days' => 7,
     ],
 
     'history' => [

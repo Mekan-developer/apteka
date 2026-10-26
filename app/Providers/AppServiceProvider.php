@@ -41,6 +41,9 @@ class AppServiceProvider extends ServiceProvider
     protected function configureRateLimiting(): void
     {
         RateLimiter::for('search', fn (Request $request): Limit => Limit::perMinute(60)->by($request->ip()));
+
+        // The search box asks for names while the visitor types (once per 250 ms pause), so it gets more room.
+        RateLimiter::for('drug-suggestions', fn (Request $request): Limit => Limit::perMinute(120)->by($request->ip()));
     }
 
     /**

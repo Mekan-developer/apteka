@@ -30,6 +30,7 @@ class PriceSearchService
         private readonly DiscountRuleRepository $discountRules,
         private readonly DrugSynonymRepository $synonyms,
         private readonly LatinTransliterator $transliterator,
+        private readonly OfferGrouper $grouper,
     ) {}
 
     public function activeUpload(): ?PriceUpload
@@ -43,26 +44,53 @@ class PriceSearchService
     }
 
     /**
-     * The cheapest offers grouped by pack size. A query with «№N» looks only at that pack size.
-     *
-     * @return list<PriceSearchGroup>
+     * The cheapest pharmacies for every variant of the drug (dosage form, dose, pack size). A pack size,
+     * form or dose named in the query («цитрамон №10», «азитромицин суспензия») narrows the variants.
      */
-    public function search(string $query): array
+    public function search(string $query): PriceSearchResult
     {
         $upload = $this->activeUpload();
 
-        if ($upload === null) {
-            return [];
+        if ($upload === null || ! $this->isSearchable($query)) {
+            return PriceSearchResult::empty();
         }
 
-        $offers = $this->cheapestOffersIn($upload, $query, (int) config('prices.search.offers_per_pack'));
+        $name = $this->normalizer->normalize($query);
 
-        $this->attachSheetDiscounts($upload, $offers);
+        $result = $this->grouper->group(
+            $this->items->cheapestOffersPerVariant(...$this->matchArguments($upload, $query)),
+            perGroup: (int) config('prices.search.offers_per_pack'),
+            correctedBelow: (float) config('prices.search.corrected_below'),
+            form: $name->dosageForm,
+            dose: $name->dose,
+        );
 
-        return array_values($offers
-            ->groupBy(fn (PriceItem $offer): string => (string) $offer->pack_count)
-            ->map(fn (Collection $group): PriceSearchGroup => new PriceSearchGroup($group->first()?->pack_count, $group->values()))
-            ->all());
+        $this->attachSheetDiscounts($upload, new Collection(array_merge(...array_map(
+            fn (PriceSearchGroup $group): array => $group->offers->all(),
+            $result->groups,
+        ))));
+
+        return $result;
+    }
+
+    /**
+     * How many pharmacies the active prices cover.
+     */
+    public function pharmaciesCount(): int
+    {
+        $upload = $this->activeUpload();
+
+        return $upload === null ? 0 : $this->items->countPharmacies($upload);
+    }
+
+    /**
+     * Whether the active prices are older than a week: the page warns that they may have changed.
+     */
+    public function pricesAreStale(): bool
+    {
+        $activatedAt = $this->activeUpload()?->activated_at;
+
+        return $activatedAt !== null && $activatedAt->lt(now()->subDays((int) config('prices.search.stale_after_days')));
     }
 
     /**
@@ -102,6 +130,17 @@ class PriceSearchService
      */
     private function cheapestOffersIn(PriceUpload $upload, string $query, int $perPack): Collection
     {
+        return $this->items->cheapestOffers(...$this->matchArguments($upload, $query), perPack: $perPack);
+    }
+
+    /**
+     * How the repository finds the products relevant to a query: the query and its synonyms, the consonant
+     * skeletons of every spelling, the pack size named in the query and the similarity settings.
+     *
+     * @return array{upload: PriceUpload, terms: non-empty-list<string>, skeletons: list<string>, packCount: int|null, threshold: float, relativeGap: float, skeletonScore: float}
+     */
+    private function matchArguments(PriceUpload $upload, string $query): array
+    {
         $terms = [];
 
         foreach ($this->spellings($query) as $spelling) {
@@ -109,19 +148,63 @@ class PriceSearchService
             array_push($terms, $term, ...$this->synonyms->namesRelatedTo($term));
         }
 
-        return $this->items->cheapestOffers(
-            upload: $upload,
-            terms: array_values(array_unique($terms)),
-            skeletons: array_values(array_unique(array_map(
+        /** @var non-empty-list<string> $terms */
+        $terms = array_values(array_unique($terms));
+
+        return [
+            'upload' => $upload,
+            'terms' => $terms,
+            'skeletons' => array_values(array_unique(array_map(
                 fn (string $spelling): string => $this->normalizer->normalize($spelling)->skeleton,
                 $this->spellings($query),
             ))),
-            packCount: $this->normalizer->normalize($query)->packCount,
-            threshold: (float) config('prices.search.similarity_threshold'),
-            relativeGap: (float) config('prices.search.relative_gap'),
-            skeletonScore: (float) config('prices.search.skeleton_score'),
-            perPack: $perPack,
-        );
+            'packCount' => $this->normalizer->normalize($query)->packCount,
+            'threshold' => (float) config('prices.search.similarity_threshold'),
+            'relativeGap' => (float) config('prices.search.relative_gap'),
+            'skeletonScore' => (float) config('prices.search.skeleton_score'),
+        ];
+    }
+
+    /**
+     * Whether the query is long enough to search: one or two letters match nearly every product.
+     */
+    public function isSearchable(string $query): bool
+    {
+        return mb_strlen(trim($query)) >= (int) config('prices.search.min_query_length');
+    }
+
+    /**
+     * Names for the search box as the visitor types: names starting with the query first, then — for a typo
+     * in the first letters — names that only resemble it. Names are normalized as on import («но шпа»).
+     *
+     * @return list<array{name: string, pharmacies_count: int}>
+     */
+    public function autocomplete(string $query): array
+    {
+        $upload = $this->activeUpload();
+
+        if ($upload === null || ! $this->isSearchable($query)) {
+            return [];
+        }
+
+        $limit = (int) config('prices.search.autocomplete');
+        $terms = array_values(array_unique(array_map(fn (string $spelling): string => $this->term($spelling), $this->spellings($query))));
+        $names = [];
+
+        foreach ($this->items->namesStartingWith($upload, $terms, $limit) as $name) {
+            $names[$name['name']] = $name;
+        }
+
+        // Trigrams of a two-letter query resemble too many names to be useful.
+        if (count($names) < $limit && mb_strlen(trim($query)) >= 3) {
+            foreach ($terms as $term) {
+                foreach ($this->items->namesResembling($upload, $term, (float) config('prices.search.suggestion_threshold'), $limit) as $name) {
+                    $names[$name['name']] ??= $name;
+                }
+            }
+        }
+
+        return array_slice(array_values($names), 0, $limit);
     }
 
     /**

@@ -13,7 +13,7 @@ test('the search page opens without signing in', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('Search')
             ->where('query', '')
-            ->where('groups', [])
+            ->where('result.groups', [])
             ->where('pricesDate', null)
         );
 });
@@ -24,8 +24,8 @@ test('a typo in the vowels still finds the drug', function () {
 
     $this->get(route('home', ['q' => 'анолгин']))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('groups.0.offers.0.raw_name', 'Анальгин таб 500мг №10 Беларусь')
-            ->where('groups.0.offers.0.pharmacy.name', 'ASDS')
+            ->where('result.groups.0.offers.0.raw_name', 'Анальгин таб 500мг №10 Беларусь')
+            ->where('result.groups.0.offers.0.pharmacy.name', 'ASDS')
         );
 });
 
@@ -38,14 +38,14 @@ test('a cheaper product that only looks like the query does not push the drug ou
 
     $this->get(route('home', ['q' => 'цитрамон']))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('groups.0.offers', 1)
-            ->where('groups.0.offers.0.raw_name', 'Цитрамон таб №4')
+            ->has('result.groups.0.offers', 1)
+            ->where('result.groups.0.offers.0.raw_name', 'Цитрамон таб №4')
         );
 
     $this->get(route('home', ['q' => 'аналгин']))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('groups.0.offers', 1)
-            ->where('groups.0.offers.0.raw_name', 'Анальгин таб №10')
+            ->has('result.groups.0.offers', 1)
+            ->where('result.groups.0.offers.0.raw_name', 'Анальгин таб №10')
         );
 });
 
@@ -54,7 +54,7 @@ test('a name typed without its hyphen is found', function () {
     offer($upload, 'Atajan Gos', 'Но-шпа ампула №5', 29.7);
 
     $this->get(route('home', ['q' => 'ношпа']))
-        ->assertInertia(fn (Assert $page) => $page->where('groups.0.offers.0.raw_name', 'Но-шпа ампула №5'));
+        ->assertInertia(fn (Assert $page) => $page->where('result.groups.0.offers.0.raw_name', 'Но-шпа ампула №5'));
 });
 
 test('offers are grouped by pack size because only the same pack can be compared', function () {
@@ -64,11 +64,11 @@ test('offers are grouped by pack size because only the same pack can be compared
 
     $this->get(route('home', ['q' => 'цитрамон']))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('groups', 2)
-            ->where('groups.0.pack_count', 6)
-            ->where('groups.0.offers.0.price', '1.50')
-            ->where('groups.1.pack_count', 10)
-            ->where('groups.1.offers.0.price', '2.60')
+            ->has('result.groups', 2)
+            ->where('result.groups.0.pack_count', 6)
+            ->where('result.groups.0.offers.0.price', '1.50')
+            ->where('result.groups.1.pack_count', 10)
+            ->where('result.groups.1.offers.0.price', '2.60')
         );
 });
 
@@ -82,14 +82,14 @@ test('each pack size shows the three cheapest pharmacies, cheapest first, with o
 
     $this->get(route('home', ['q' => 'цитрамон']))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('groups', 1)
-            ->has('groups.0.offers', 3)
-            ->where('groups.0.offers.0.pharmacy.name', 'Kamat')
-            ->where('groups.0.offers.0.price', '1.10')
-            ->where('groups.0.offers.0.place', 1)
-            ->where('groups.0.offers.1.pharmacy.name', 'ASDS')
-            ->where('groups.0.offers.2.pharmacy.name', 'Enejan')
-            ->where('groups.0.offers.2.place', 3)
+            ->has('result.groups', 1)
+            ->has('result.groups.0.offers', 3)
+            ->where('result.groups.0.offers.0.pharmacy.name', 'Kamat')
+            ->where('result.groups.0.offers.0.price', '1.10')
+            ->where('result.groups.0.offers.0.place', 1)
+            ->where('result.groups.0.offers.1.pharmacy.name', 'ASDS')
+            ->where('result.groups.0.offers.2.pharmacy.name', 'Enejan')
+            ->where('result.groups.0.offers.2.place', 3)
         );
 });
 
@@ -106,12 +106,12 @@ test('offers are ranked by the price after an unconditional discount and carry t
 
     $this->get(route('home', ['q' => 'бетасерк']))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('groups.0.offers.0.pharmacy.name', 'Rahmet')
-            ->where('groups.0.offers.0.effective_price', '90.00')
-            ->where('groups.0.offers.0.price', '100.00')
-            ->where('groups.0.offers.1.pharmacy.name', 'Ashgabat')
-            ->where('groups.0.offers.1.sheet_discounts.0.min_sum', '10000.00')
-            ->where('groups.0.offers.0.sheet_discounts', [])
+            ->where('result.groups.0.offers.0.pharmacy.name', 'Rahmet')
+            ->where('result.groups.0.offers.0.effective_price', '90.00')
+            ->where('result.groups.0.offers.0.price', '100.00')
+            ->where('result.groups.0.offers.1.pharmacy.name', 'Ashgabat')
+            ->where('result.groups.0.offers.1.sheet_discounts.0.min_sum', '10000.00')
+            ->where('result.groups.0.offers.0.sheet_discounts', [])
         );
 });
 
@@ -122,8 +122,8 @@ test('only the active upload is searched', function () {
 
     $this->get(route('home', ['q' => 'цитрамон']))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('groups.0.offers', 1)
-            ->where('groups.0.offers.0.pharmacy.name', 'Kamat')
+            ->has('result.groups.0.offers', 1)
+            ->where('result.groups.0.offers.0.pharmacy.name', 'Kamat')
         );
 });
 
@@ -134,8 +134,8 @@ test('a pack size in the query narrows the search to that pack', function () {
 
     $this->get(route('home', ['q' => 'цитрамон №10']))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('groups', 1)
-            ->where('groups.0.pack_count', 10)
+            ->has('result.groups', 1)
+            ->where('result.groups.0.pack_count', 10)
         );
 });
 
@@ -144,7 +144,7 @@ test('the active ingredient finds the drug under another brand name', function (
     offer($upload, 'Abray Umyt', 'ACTION PLUS (ЦИТРАМОН) №4', 1.1);
 
     $this->get(route('home', ['q' => 'цитрамон']))
-        ->assertInertia(fn (Assert $page) => $page->where('groups.0.offers.0.raw_name', 'ACTION PLUS (ЦИТРАМОН) №4'));
+        ->assertInertia(fn (Assert $page) => $page->where('result.groups.0.offers.0.raw_name', 'ACTION PLUS (ЦИТРАМОН) №4'));
 });
 
 test('a drug name typed in Latin letters finds the drug written in Cyrillic', function (string $query) {
@@ -152,7 +152,7 @@ test('a drug name typed in Latin letters finds the drug written in Cyrillic', fu
     offer($upload, 'ASDS', 'Анальгин таб 500мг №10 Беларусь', 3.1);
 
     $this->get(route('home', ['q' => $query]))
-        ->assertInertia(fn (Assert $page) => $page->where('groups.0.offers.0.raw_name', 'Анальгин таб 500мг №10 Беларусь'));
+        ->assertInertia(fn (Assert $page) => $page->where('result.groups.0.offers.0.raw_name', 'Анальгин таб 500мг №10 Беларусь'));
 })->with(['analgin', 'Analgin tab №10', 'anolgin']);
 
 test('a brand stored in Latin letters is still found by its Latin name', function () {
@@ -160,7 +160,7 @@ test('a brand stored in Latin letters is still found by its Latin name', functio
     offer($upload, 'Abray Umyt', 'ACTION PLUS (ЦИТРАМОН) №4', 1.1);
 
     $this->get(route('home', ['q' => 'action plus']))
-        ->assertInertia(fn (Assert $page) => $page->where('groups.0.offers.0.raw_name', 'ACTION PLUS (ЦИТРАМОН) №4'));
+        ->assertInertia(fn (Assert $page) => $page->where('result.groups.0.offers.0.raw_name', 'ACTION PLUS (ЦИТРАМОН) №4'));
 });
 
 test('a Latin query that finds nothing suggests the Cyrillic product names', function () {
@@ -170,7 +170,7 @@ test('a Latin query that finds nothing suggests the Cyrillic product names', fun
 
     $this->get(route('home', ['q' => 'aspirn']))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('groups', [])
+            ->where('result.groups', [])
             ->where('suggestions', ['аспирин'])
         );
 });
@@ -184,9 +184,9 @@ test('a synonym finds the drug under its other name, in both directions', functi
     foreach (['аспирин', 'ацетилсалициловая кислота'] as $query) {
         $this->get(route('home', ['q' => $query]))
             ->assertInertia(fn (Assert $page) => $page
-                ->has('groups.0.offers', 2)
-                ->where('groups.0.offers.0.pharmacy.name', 'Naz ada')
-                ->where('groups.0.offers.1.pharmacy.name', 'Merdan Gos')
+                ->has('result.groups.0.offers', 2)
+                ->where('result.groups.0.offers.0.pharmacy.name', 'Naz ada')
+                ->where('result.groups.0.offers.1.pharmacy.name', 'Merdan Gos')
             );
     }
 });
@@ -198,7 +198,7 @@ test('synonyms reach the names linked through another name', function () {
     DrugSynonym::factory()->create(['term_normalized' => 'цитрамон', 'synonym_normalized' => 'аскофен п']);
 
     $this->get(route('home', ['q' => 'action plus']))
-        ->assertInertia(fn (Assert $page) => $page->where('groups.0.offers.0.raw_name', 'Аскофен-П таб №10'));
+        ->assertInertia(fn (Assert $page) => $page->where('result.groups.0.offers.0.raw_name', 'Аскофен-П таб №10'));
 });
 
 test('a search that finds nothing suggests close product names', function () {
@@ -208,7 +208,7 @@ test('a search that finds nothing suggests close product names', function () {
 
     $this->get(route('home', ['q' => 'аспирн']))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('groups', [])
+            ->where('result.groups', [])
             ->where('suggestions', ['аспирин'])
         );
 });
@@ -219,12 +219,111 @@ test('nothing is searched before prices are published', function () {
     $this->get(route('home', ['q' => 'цитрамон']))
         ->assertInertia(fn (Assert $page) => $page
             ->where('pricesDate', null)
-            ->where('groups', [])
+            ->where('result.groups', [])
             ->where('suggestions', [])
         );
 });
 
+test('a query shorter than two letters is refused with a localized message, spaces not counting', function (string $query) {
+    $this->get(route('home', ['q' => $query]))
+        ->assertSessionHasErrors(['q' => 'Введите хотя бы 2 буквы названия препарата.']);
+})->with(['p', '  ц  ']);
+
 test('a query longer than 100 characters is refused with a localized message', function () {
     $this->get(route('home', ['q' => str_repeat('а', 101)]))
         ->assertSessionHasErrors(['q' => 'Поле «Название препарата» не должно превышать 100 символов.']);
+});
+
+test('variants of a drug with another dose or dosage form are separate groups with readable labels', function () {
+    $upload = PriceUpload::factory()->active()->create();
+    offer($upload, 'Kamat', 'Азитромицин таб 500мг №3', 12);
+    offer($upload, 'ASDS', 'Азитромицин Сандоз 500мг таблетки №3', 13);
+    offer($upload, 'Gumry', 'Азитромицин Лек 200мг/5мл суспензия 200мл', 30);
+
+    $this->get(route('home', ['q' => 'азитромицин']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('result.groups', 2)
+            ->where('result.groups.0.drug_name', 'Азитромицин')
+            ->where('result.groups.0.dosage_form_label', 'таблетки')
+            ->where('result.groups.0.dose_label', '500 мг')
+            ->where('result.groups.0.pack_count', 3)
+            ->where('result.groups.0.pharmacies_count', 2)
+            ->where('result.groups.0.offers.1.price_difference', '1.00')
+            ->where('result.groups.1.dosage_form_label', 'суспензия')
+            ->where('result.groups.1.dose_label', '200 мг, 5 мл, 200 мл')
+            ->where('result.summary', ['variants_count' => 2, 'pharmacies_count' => 3, 'lowest_price' => '12.00'])
+            ->where('result.corrected_to', null)
+        );
+});
+
+test('labels follow the interface language', function () {
+    $upload = PriceUpload::factory()->active()->create();
+    offer($upload, 'Kamat', 'Азитромицин таб 500мг №3', 12);
+
+    $this->withSession(['locale' => 'tk'])
+        ->get(route('home', ['q' => 'азитромицин']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('result.groups.0.dosage_form_label', 'tabletkalar')
+            ->where('result.groups.0.dose_label', '500 mg')
+        );
+});
+
+test('a dosage form named in the query shows only that form', function () {
+    $upload = PriceUpload::factory()->active()->create();
+    offer($upload, 'Kamat', 'Азитромицин таб 500мг №3', 12);
+    offer($upload, 'Gumry', 'Азитромицин Лек 200мг/5мл суспензия 200мл', 30);
+
+    $this->get(route('home', ['q' => 'азитромицин суспензия']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('result.groups', 1)
+            ->where('result.groups.0.dosage_form', 'suspension')
+        );
+});
+
+test('a misspelt query says which drug the results are for', function () {
+    $upload = PriceUpload::factory()->active()->create();
+    offer($upload, 'ASDS', 'Анальгин таб 500мг №10 Беларусь', 3.1);
+
+    $this->get(route('home', ['q' => 'анолгин']))
+        ->assertInertia(fn (Assert $page) => $page->where('result.corrected_to', 'Аналгин'));
+});
+
+test('the empty search page tells how many pharmacies the prices cover and offers popular queries', function () {
+    $upload = PriceUpload::factory()->active()->create(['activated_at' => now()->subDays(2)]);
+    offer($upload, 'Kamat', 'Цитрамон таб №6', 1.5);
+    offer($upload, 'ASDS', 'Цитрамон таб №6', 1.4);
+    offer($upload, 'ASDS', 'Аналгин таб №10', 2.1);
+
+    $this->get(route('home'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('pharmaciesCount', 2)
+            ->where('pricesStale', false)
+            ->where('minQueryLength', 2)
+            ->where('popularQueries', config('prices.search.popular'))
+            ->where('result.summary', null)
+        );
+});
+
+test('prices published more than a week ago are flagged as stale', function () {
+    PriceUpload::factory()->active()->create(['activated_at' => now()->subDays(8)]);
+
+    $this->get(route('home'))->assertInertia(fn (Assert $page) => $page->where('pricesStale', true));
+});
+
+test('each offer shows the pharmacy phones in one format and its address', function () {
+    $upload = PriceUpload::factory()->active()->create();
+    Pharmacy::factory()->create(['name' => 'Altyn Dag', 'phones' => ['+99312229830', '+99365974444'], 'address' => 'ул. Огузхан, дом 106']);
+    offer($upload, 'Altyn Dag', 'Цитрамон таб №6', 1.5);
+
+    $this->get(route('home', ['q' => 'цитрамон']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('result.groups.0.offers.0.pharmacy', [
+                'name' => 'Altyn Dag',
+                'phones' => [
+                    ['display' => '+993 12 22 98 30', 'dial' => '+99312229830'],
+                    ['display' => '+993 65 97 44 44', 'dial' => '+99365974444'],
+                ],
+                'address' => 'ул. Огузхан, дом 106',
+            ])
+        );
 });

@@ -15,6 +15,8 @@ return [
     'password_updated' => 'Açar sözi üstünlikli üýtgedildi.',
     'locale_updated' => 'Interfeýsiň dili türkmen diline üýtgedildi.',
     'api_available' => 'API v1 işleýär.',
+    'drug_suggestions_found' => 'Tapylan maslahatlar: :count.',
+    'drug_suggestions_empty' => 'Baha sanawlarynda meňzeş at ýok.',
     'price_upload_started' => '«:name» faýly ýüklendi. Sahypalar seljerilýär, adatça bir minuda çenli wagt alýar.',
     'price_sheet_reparse_started' => '«:name» sahypasy saýlanan sütünler bilen täzeden seljerilýär. Netije birnäçe sekuntdan peýda bolar.',
     'price_sheet_reparse_busy' => 'Häzir sahypany täzeden seljerip bolmaýar: faýl ýa-da bu sahypa entek işlenýär. Bir minutdan synanyşyň.',

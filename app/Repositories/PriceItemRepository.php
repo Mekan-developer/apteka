@@ -87,13 +87,8 @@ class PriceItemRepository
 
     /**
      * The cheapest pharmacies for a searched drug, $perPack for every pack size, in one query:
-     * candidates by whole-word trigram similarity of the base name or active ingredient (or by consonants,
-     * for typos in vowels) → only those close to the best match → each pharmacy's cheapest offer per
-     * pack size → the cheapest pharmacies. Every returned item carries its "score" and its "place".
-     *
-     * Whole words matter: plain word similarity puts «силденафил цитрат» at 0.56 to «цитрамон».
-     * The relative cutoff keeps a cheaper look-alike («Баралгин» for «аналгин») from outranking
-     * the drug itself once the drug is found.
+     * relevant products (see relevantSql()) → each pharmacy's cheapest offer per pack size → the cheapest
+     * pharmacies. Every returned item carries its "score" and its "place". Used by the price history.
      *
      * @param  non-empty-list<string>  $terms  The searched name first, then its synonyms; each counts as a full match.
      * @param  list<string>  $skeletons  The consonants of every spelling of the searched name.
@@ -109,6 +104,80 @@ class PriceItemRepository
         float $skeletonScore,
         int $perPack,
     ): Collection {
+        [$relevantSql, $bindings] = $this->relevantSql($upload, $terms, $skeletons, $packCount, $threshold, $relativeGap, $skeletonScore);
+
+        $sql = <<<SQL
+            {$relevantSql},
+            cheapest_per_pharmacy as (
+                select distinct on (pack_count, pharmacy_id) *
+                from relevant
+                order by pack_count, pharmacy_id, effective_price, score desc
+            ),
+            ranked as (
+                select *, row_number() over (partition by pack_count order by effective_price, score desc) as place
+                from cheapest_per_pharmacy
+            )
+            select * from ranked
+            where place <= ?
+            order by pack_count nulls last, place
+            SQL;
+
+        return $this->withTrigramThreshold($threshold, fn (): Collection => PriceItem::fromQuery($sql, [...$bindings, $perPack])
+            ->load('pharmacy'));
+    }
+
+    /**
+     * Each pharmacy's cheapest offer of every variant (dosage form, dose and pack size) of a searched drug.
+     * Variants are merged and ranked by the search service; every item carries its "score" and "best_score".
+     *
+     * @param  non-empty-list<string>  $terms  The searched name first, then its synonyms; each counts as a full match.
+     * @param  list<string>  $skeletons  The consonants of every spelling of the searched name.
+     * @return Collection<int, PriceItem>
+     */
+    public function cheapestOffersPerVariant(
+        PriceUpload $upload,
+        array $terms,
+        array $skeletons,
+        ?int $packCount,
+        float $threshold,
+        float $relativeGap,
+        float $skeletonScore,
+    ): Collection {
+        [$relevantSql, $bindings] = $this->relevantSql($upload, $terms, $skeletons, $packCount, $threshold, $relativeGap, $skeletonScore);
+
+        $sql = <<<SQL
+            {$relevantSql}
+            select distinct on (dosage_form, dose, pack_count, pharmacy_id) *
+            from relevant
+            order by dosage_form, dose, pack_count, pharmacy_id, effective_price, score desc
+            SQL;
+
+        return $this->withTrigramThreshold($threshold, fn (): Collection => PriceItem::fromQuery($sql, $bindings)
+            ->load('pharmacy'));
+    }
+
+    /**
+     * The products of the upload relevant to a searched drug, as a "relevant" CTE: candidates by whole-word
+     * trigram similarity of the base name or active ingredient (or by consonants, for typos in vowels),
+     * then only those close to the best match.
+     *
+     * Whole words matter: plain word similarity puts «силденафил цитрат» at 0.56 to «цитрамон».
+     * The relative cutoff keeps a cheaper look-alike («Баралгин» for «аналгин») from outranking
+     * the drug itself once the drug is found.
+     *
+     * @param  non-empty-list<string>  $terms
+     * @param  list<string>  $skeletons
+     * @return array{0: string, 1: list<mixed>}
+     */
+    private function relevantSql(
+        PriceUpload $upload,
+        array $terms,
+        array $skeletons,
+        ?int $packCount,
+        float $threshold,
+        float $relativeGap,
+        float $skeletonScore,
+    ): array {
         $scoreSql = [];
         $scoreBindings = [];
         $matchSql = [];
@@ -153,7 +222,6 @@ class PriceItemRepository
 
         $scoreSql = implode(', ', $scoreSql);
         $matchSql = implode(' or ', $matchSql);
-        $filterBindings = [...$filterBindings, ...$matchBindings];
 
         $sql = <<<SQL
             with candidates as (
@@ -163,31 +231,33 @@ class PriceItemRepository
                     {$packSql}
                     and ({$matchSql})
             ),
-            relevant as (
+            scored as (
                 select *, max(score) over () as best_score
                 from candidates
             ),
-            cheapest_per_pharmacy as (
-                select distinct on (pack_count, pharmacy_id) *
-                from relevant
+            relevant as (
+                select * from scored
                 where score >= greatest(?::real, best_score - ?::real)
-                order by pack_count, pharmacy_id, effective_price, score desc
-            ),
-            ranked as (
-                select *, row_number() over (partition by pack_count order by effective_price, score desc) as place
-                from cheapest_per_pharmacy
             )
-            select * from ranked
-            where place <= ?
-            order by pack_count nulls last, place
             SQL;
 
-        return DB::transaction(function () use ($sql, $scoreBindings, $filterBindings, $threshold, $relativeGap, $perPack): Collection {
-            // "<<%" uses this threshold (pg_trgm's default is 0.5), which lets the GIN indexes serve the search.
+        return [$sql, [...$scoreBindings, ...$filterBindings, ...$matchBindings, $threshold, $relativeGap]];
+    }
+
+    /**
+     * "<<%" uses this threshold (pg_trgm's default is 0.5), which lets the GIN indexes serve the search.
+     *
+     * @template TResult
+     *
+     * @param  Closure(): TResult  $query
+     * @return TResult
+     */
+    private function withTrigramThreshold(float $threshold, Closure $query): mixed
+    {
+        return DB::transaction(function () use ($threshold, $query): mixed {
             DB::select("select set_config('pg_trgm.strict_word_similarity_threshold', ?, true)", [(string) $threshold]);
 
-            return PriceItem::fromQuery($sql, [...$scoreBindings, ...$filterBindings, $threshold, $relativeGap, $perPack])
-                ->load('pharmacy');
+            return $query();
         });
     }
 
@@ -211,6 +281,98 @@ class PriceItemRepository
             ->pluck('base_name')
             ->map(fn (mixed $name): string => (string) $name)
             ->all());
+    }
+
+    /**
+     * Names for the search box: base names and active ingredients starting with one of the terms
+     * («аз» → «азитромицин»), the ones sold by more pharmacies first.
+     *
+     * @param  non-empty-list<string>  $terms
+     * @return list<array{name: string, pharmacies_count: int}>
+     */
+    public function namesStartingWith(PriceUpload $upload, array $terms, int $limit): array
+    {
+        $baseSql = [];
+        $ingredientSql = [];
+        $bindings = [];
+
+        foreach ($terms as $term) {
+            $prefix = $this->likePrefix($term);
+            $baseSql[] = 'base_name like ? or name_compact like ?';
+            $ingredientSql[] = 'active_ingredient like ?';
+            array_push($bindings, $prefix, $this->likePrefix(str_replace(' ', '', $term)));
+        }
+
+        $ingredientBindings = array_map(fn (string $term): string => $this->likePrefix($term), $terms);
+        $baseSql = implode(' or ', $baseSql);
+        $ingredientSql = implode(' or ', $ingredientSql);
+
+        $sql = <<<SQL
+            select name, count(distinct pharmacy_id) as pharmacies_count
+            from (
+                select base_name as name, pharmacy_id from price_items
+                where price_upload_id = ? and base_name <> '' and ({$baseSql})
+                union all
+                select active_ingredient as name, pharmacy_id from price_items
+                where price_upload_id = ? and ({$ingredientSql})
+            ) names
+            group by name
+            order by pharmacies_count desc, name
+            limit ?
+            SQL;
+
+        return $this->nameRows(DB::select($sql, [$upload->id, ...$bindings, $upload->id, ...$ingredientBindings, $limit]));
+    }
+
+    /**
+     * Names for the search box that only resemble the term (a typo in the first letters), most similar first.
+     *
+     * @return list<array{name: string, pharmacies_count: int}>
+     */
+    public function namesResembling(PriceUpload $upload, string $term, float $threshold, int $limit): array
+    {
+        $sql = <<<'SQL'
+            select base_name as name, count(distinct pharmacy_id) as pharmacies_count, max(word_similarity(?, base_name)) as score
+            from price_items
+            where price_upload_id = ? and base_name <> '' and ? <% base_name
+            group by base_name
+            order by score desc, pharmacies_count desc, base_name
+            limit ?
+            SQL;
+
+        return DB::transaction(function () use ($sql, $upload, $term, $threshold, $limit): array {
+            DB::select("select set_config('pg_trgm.word_similarity_threshold', ?, true)", [(string) $threshold]);
+
+            return $this->nameRows(DB::select($sql, [$term, $upload->id, $term, $limit]));
+        });
+    }
+
+    /**
+     * How many pharmacies sell something in the upload.
+     */
+    public function countPharmacies(PriceUpload $upload): int
+    {
+        return (int) PriceItem::query()->whereBelongsTo($upload)->distinct()->count('pharmacy_id');
+    }
+
+    /**
+     * @param  array<int, object{name: string, pharmacies_count: int|string}>  $rows
+     * @return list<array{name: string, pharmacies_count: int}>
+     */
+    private function nameRows(array $rows): array
+    {
+        return array_map(fn (object $row): array => [
+            'name' => (string) $row->name,
+            'pharmacies_count' => (int) $row->pharmacies_count,
+        ], array_values($rows));
+    }
+
+    /**
+     * A LIKE pattern for values starting with the text, with its own wildcards escaped.
+     */
+    private function likePrefix(string $text): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $text).'%';
     }
 
     /**

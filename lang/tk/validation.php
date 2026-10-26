@@ -167,7 +167,11 @@ return [
     'ulid' => '«:attribute» meýdany dogry ULID bolmaly.',
     'uuid' => '«:attribute» meýdany dogry UUID bolmaly.',
 
-    'custom' => [],
+    'custom' => [
+        'q' => [
+            'min' => 'Dermanyň adyndan iň bolmanda :min harp ýazyň.',
+        ],
+    ],
 
     /*
     |--------------------------------------------------------------------------
